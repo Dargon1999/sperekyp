@@ -28,14 +28,16 @@ app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False 
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['BACKUP_FOLDER'] = os.path.join(BASE_DIR, 'backups')
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 # 500MB
+app.config['TRASH_FOLDER'] = os.path.join(BASE_DIR, 'trash')
+app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024 # 30MB
 
 # Ensure directories exist
 for folder in [app.config['UPLOAD_FOLDER'], 
                os.path.join(app.config['UPLOAD_FOLDER'], 'images'),
                os.path.join(app.config['UPLOAD_FOLDER'], 'previews'),
                os.path.join(app.config['UPLOAD_FOLDER'], 'software'),
-               app.config['BACKUP_FOLDER']]:
+               app.config['BACKUP_FOLDER'],
+               app.config['TRASH_FOLDER']]:
     os.makedirs(folder, exist_ok=True)
 
 db = SQLAlchemy(app)
@@ -54,6 +56,16 @@ class AdminLog(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip = db.Column(db.String(45))
     action = db.Column(db.String(255))
+
+class ImageMetadata(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), unique=True, nullable=False)
+    original_name = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(50), nullable=False)
+    size = db.Column(db.Integer, nullable=False)
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    is_hero = db.Column(db.Boolean, default=False)
+    is_bg = db.Column(db.Boolean, default=False)
 
 # Initialize database and admin user
 with app.app_context():
@@ -149,48 +161,151 @@ def logout():
 def get_config():
     return send_from_directory(BASE_DIR, 'config.json')
 
+@app.route('/api/images', methods=['GET'])
+@jwt_required()
+def get_images():
+    images = ImageMetadata.query.order_by(ImageMetadata.upload_date.desc()).all()
+    return jsonify([{
+        'id': img.id,
+        'filename': img.filename,
+        'original_name': img.original_name,
+        'url': f'/uploads/images/{img.filename}',
+        'preview': f'/uploads/previews/{img.filename}',
+        'size': img.size,
+        'mimetype': img.mimetype,
+        'is_hero': img.is_hero,
+        'is_bg': img.is_bg
+    } for img in images])
+
 @app.route('/api/upload/image', methods=['POST'])
 @jwt_required()
 def upload_image():
     if 'file' not in request.files:
-        return jsonify({'msg': 'No file'}), 400
+        return jsonify({'msg': 'Файл не выбран'}), 400
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'msg': 'No filename'}), 400
+    files = request.files.getlist('file')
+    results = []
     
-    if file:
-        filename = secure_filename(file.filename)
-        path = os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename)
-        file.save(path)
-        
-        # Auto-compression and preview
-        img = Image.open(path)
-        img.thumbnail((1200, 1200))
-        img.save(path, optimize=True, quality=85)
-        
-        preview_path = os.path.join(app.config['UPLOAD_FOLDER'], 'previews', filename)
-        img.thumbnail((300, 300))
-        img.save(preview_path)
-        
-        log_action(f"Uploaded image: {filename}")
-        return jsonify({
-            'msg': 'Image uploaded', 
-            'preview': f'/uploads/previews/{filename}',
-            'filename': filename
-        })
+    allowed_formats = ['JPEG', 'PNG', 'WEBP']
+    
+    for file in files:
+        if file.filename == '':
+            continue
+            
+        try:
+            # Check format via PIL (XSS Protection/MIME validation)
+            img = Image.open(file)
+            if img.format not in allowed_formats:
+                return jsonify({'msg': f'Формат {img.format} не поддерживается. Только JPEG, PNG, WEBP.'}), 400
+                
+            # Secure filename and unique ID
+            original_filename = secure_filename(file.filename)
+            unique_prefix = hashlib.md5(f"{datetime.now()}{original_filename}".encode()).hexdigest()[:8]
+            filename = f"{unique_prefix}_{original_filename}"
+            
+            path = os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename)
+            file.seek(0) # Reset pointer
+            file.save(path)
+            
+            # File metadata
+            file_size = os.path.getsize(path)
+            if file_size > 30 * 1024 * 1024:
+                os.remove(path)
+                return jsonify({'msg': f'Файл {original_filename} слишком велик (>30MB)'}), 400
 
-@app.route('/api/delete/image/<filename>', methods=['DELETE'])
+            # Optimize and create preview
+            img = Image.open(path)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+                
+            img.thumbnail((1920, 1920))
+            img.save(path, optimize=True, quality=85)
+            
+            preview_path = os.path.join(app.config['UPLOAD_FOLDER'], 'previews', filename)
+            img.thumbnail((400, 400))
+            img.save(preview_path)
+            
+            # Save to DB
+            new_img = ImageMetadata(
+                filename=filename,
+                original_name=original_filename,
+                mimetype=img.format,
+                size=file_size
+            )
+            db.session.add(new_img)
+            db.session.commit()
+            
+            log_action(f"Загружено изображение: {filename}")
+            results.append({
+                'id': new_img.id,
+                'filename': filename,
+                'preview': f'/uploads/previews/{filename}'
+            })
+        except Exception as e:
+            logging.error(f"Ошибка загрузки файла: {str(e)}")
+            return jsonify({'msg': f'Ошибка при обработке {file.filename}: {str(e)}'}), 500
+            
+    return jsonify({'msg': f'Успешно загружено {len(results)} файлов', 'files': results})
+
+@app.route('/api/delete/image/<int:image_id>', methods=['DELETE'])
 @jwt_required()
-def delete_image(filename):
-    filename = secure_filename(filename)
+def delete_image(image_id):
+    img_meta = ImageMetadata.query.get_or_404(image_id)
+    filename = img_meta.filename
+    
     try:
-        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename))
-        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], 'previews', filename))
-        log_action(f"Deleted image: {filename}")
-        return jsonify({'msg': 'Deleted'})
-    except:
-        return jsonify({'msg': 'Error deleting'}), 500
+        # Move to trash (30-day backup logic)
+        source_path = os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename)
+        trash_path = os.path.join(app.config['TRASH_FOLDER'], filename)
+        
+        if os.path.exists(source_path):
+            shutil.move(source_path, trash_path)
+            
+        # Also remove preview
+        preview_path = os.path.join(app.config['UPLOAD_FOLDER'], 'previews', filename)
+        if os.path.exists(preview_path):
+            os.remove(preview_path)
+            
+        db.session.delete(img_meta)
+        db.session.commit()
+        
+        log_action(f"Удалено изображение (перемещено в корзину): {filename}")
+        return jsonify({'msg': 'Изображение удалено'})
+    except Exception as e:
+        logging.error(f"Ошибка удаления: {e}")
+        return jsonify({'msg': 'Ошибка при удалении'}), 500
+
+@app.route('/api/update/hero', methods=['POST'])
+@jwt_required()
+def update_hero():
+    data = request.json
+    img_id = data.get('image_id')
+    type = data.get('type') # 'hero' or 'bg'
+    
+    img = ImageMetadata.query.get_or_404(img_id)
+    
+    # Reset others
+    if type == 'hero':
+        ImageMetadata.query.update({ImageMetadata.is_hero: False})
+        img.is_hero = True
+    else:
+        ImageMetadata.query.update({ImageMetadata.is_bg: False})
+        img.is_bg = True
+        
+    db.session.commit()
+    
+    # Update config.json too
+    config_path = update_config_path('config.json')
+    with open(config_path, 'r+', encoding='utf-8') as f:
+        config = json.load(f)
+        if 'placements' not in config: config['placements'] = {}
+        config['placements'][type] = f'/uploads/images/{img.filename}'
+        f.seek(0)
+        json.dump(config, f, indent=4, ensure_ascii=False)
+        f.truncate()
+        
+    log_action(f"Обновлено {type} изображение: {img.filename}")
+    return jsonify({'msg': f'Главное изображение {type} обновлено'})
 
 # Update config.json path in functions
 def update_config_path(filename):

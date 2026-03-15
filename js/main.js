@@ -69,6 +69,21 @@
         const sizeEl = document.getElementById('app-size');
         if (sizeEl) sizeEl.textContent = config.file_size;
 
+        // Apply Dynamic Placements
+        if (config.placements) {
+            const heroImg = document.getElementById('hero-img');
+            if (heroImg && config.placements.hero) {
+                heroImg.src = config.placements.hero;
+            }
+            
+            const downloadSection = document.getElementById('download');
+            if (downloadSection && config.placements.download) {
+                downloadSection.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url(${config.placements.download})`;
+                downloadSection.style.backgroundSize = 'cover';
+                downloadSection.style.backgroundPosition = 'center';
+            }
+        }
+
         const whyUsContainer = document.getElementById('why-us-container');
         if (whyUsContainer) {
             whyUsContainer.innerHTML = config.why_us.map(item => `

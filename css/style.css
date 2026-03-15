@@ -403,3 +403,38 @@ footer {
     .nav-links { display: none; }
     .menu-toggle { display: block; }
 }
+
+.action-btn {
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.22s;
+}
+
+.action-btn:hover { color: var(--primary); transform: scale(1.2); }
+.action-btn.del:hover { color: var(--accent); }
+.action-btn.active { color: var(--primary); text-shadow: var(--neon-glow); }
+
+.media-item.hero-active { border: 2px solid var(--primary); }
+.media-item.hero-active::after {
+    content: 'HERO';
+    position: absolute;
+    top: 5px; right: 5px;
+    background: var(--primary);
+    color: #000;
+    font-size: 8px;
+    font-weight: 900;
+    padding: 2px 5px;
+}
+
+.media-item.bg-active { border: 2px solid var(--accent); }
+.media-item.bg-active::before {
+    content: 'BG';
+    position: absolute;
+    top: 5px; left: 5px;
+    background: var(--accent);
+    color: #000;
+    font-size: 8px;
+    font-weight: 900;
+    padding: 2px 5px;
+    z-index: 5;
+}

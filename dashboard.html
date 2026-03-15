@@ -269,10 +269,7 @@
     <script src="js/main.js"></script>
     <script>
         let config = null;
-        let mediaFiles = [
-            { id: 1, url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80', name: 'dashboard_main.jpg' },
-            { id: 2, url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80', name: 'ledger_view.jpg' }
-        ];
+        let mediaFiles = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('admin_logged_in') !== 'true' && window.location.protocol === 'file:') {
@@ -280,19 +277,17 @@
                 return;
             }
             loadData();
+            loadMedia();
             initDragAndDrop();
         });
 
         async function loadData() {
             try {
-                // If on server, this will work. If local file://, main.js fallback might have set something or we use this
-                const resp = await fetch('config.json');
+                const resp = await fetch('/config.json');
                 if (!resp.ok) throw new Error();
                 config = await resp.json();
                 document.getElementById('edit-desc').value = config.description;
                 renderWhyUs();
-                renderMedia();
-                renderPlacement();
             } catch (e) {
                 console.warn("Using local/demo data");
                 config = JSON.parse(localStorage.getItem('site_config')) || { 
@@ -300,38 +295,63 @@
                     why_us: [
                         {icon: 'fas fa-microchip', title: 'Demo Tech', desc: 'System initialized in demo mode.'}
                     ],
-                    placements: { hero: 1, download: 2 }
+                    placements: { hero: '', download: '' }
                 };
                 document.getElementById('edit-desc').value = config.description;
                 renderWhyUs();
-                renderMedia();
-                renderPlacement();
+            }
+        }
+
+        async function loadMedia() {
+            try {
+                const resp = await fetch('/api/images');
+                if (resp.ok) {
+                    mediaFiles = await resp.json();
+                    renderMedia();
+                }
+            } catch (e) {
+                console.error("Failed to load media", e);
             }
         }
 
         function renderMedia() {
             const container = document.getElementById('media-list');
-            // If we have real uploaded files, they will be in /uploads/
-            container.innerHTML = mediaFiles.map(file => {
-                const url = file.url.startsWith('http') ? file.url : '/uploads/images/' + file.url;
-                return `
-                    <div class="media-item">
-                        <img src="${url}" alt="${file.name}">
-                        <div class="media-actions">
-                            <i class="fas fa-edit action-btn" onclick="editMedia(${file.id})" title="Заменить"></i>
-                            <i class="fas fa-trash action-btn del" onclick="deleteMedia(${file.id})" title="Удалить"></i>
-                        </div>
+            container.innerHTML = mediaFiles.map(file => `
+                <div class="media-item ${file.is_hero ? 'hero-active' : ''} ${file.is_bg ? 'bg-active' : ''}">
+                    <img src="${file.preview}" alt="${file.original_name}">
+                    <div class="media-actions">
+                        <i class="fas fa-star action-btn ${file.is_hero ? 'active' : ''}" onclick="setPlacement(${file.id}, 'hero')" title="Сделать главным (Hero)"></i>
+                        <i class="fas fa-image action-btn ${file.is_bg ? 'active' : ''}" onclick="setPlacement(${file.id}, 'bg')" title="Сделать фоном"></i>
+                        <i class="fas fa-trash action-btn del" onclick="deleteMedia(${file.id})" title="Удалить"></i>
                     </div>
-                `;
-            }).join('');
-            renderPlacement();
+                </div>
+            `).join('');
+            renderPlacementSelectors();
         }
 
-        function renderPlacement() {
+        async function setPlacement(id, type) {
+            try {
+                const resp = await fetch('/api/update/hero', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ image_id: id, type: type })
+                });
+                if (resp.ok) {
+                    alert(`СИСТЕМА: Изображение установлено как ${type}`);
+                    loadMedia();
+                    loadData();
+                }
+            } catch (e) {
+                alert('ОШИБКА: Не удалось обновить размещение');
+            }
+        }
+
+        function renderPlacementSelectors() {
             const heroSelect = document.getElementById('map-hero');
             const dlSelect = document.getElementById('map-download');
             
-            const options = mediaFiles.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+            const options = '<option value="">-- Выберите изображение --</option>' + 
+                mediaFiles.map(f => `<option value="${f.url}">${f.original_name}</option>`).join('');
             
             heroSelect.innerHTML = options;
             dlSelect.innerHTML = options;
@@ -342,92 +362,85 @@
             }
         }
 
-        function updateMapping(target, val) {
-            if (!config.placements) config.placements = {};
-            config.placements[target] = parseInt(val);
-        }
-
-        function deleteMedia(id) {
-            if (confirm('Вы уверены, что хотите удалить это изображение?')) {
-                mediaFiles = mediaFiles.filter(f => f.id !== id);
-                renderMedia();
+        async function deleteMedia(id) {
+            if (!confirm('ВНИМАНИЕ: Вы уверены, что хотите удалить это изображение? (Оно будет перемещено в архив на 30 дней)')) return;
+            
+            try {
+                const resp = await fetch(`/api/delete/image/${id}`, { method: 'DELETE' });
+                if (resp.ok) {
+                    mediaFiles = mediaFiles.filter(f => f.id !== id);
+                    renderMedia();
+                } else {
+                    const data = await resp.json();
+                    alert('ОШИБКА: ' + data.msg);
+                }
+            } catch (e) {
+                alert('ОШИБКА СЕТИ ПРИ УДАЛЕНИИ');
             }
-        }
-
-        function editMedia(id) {
-            document.getElementById('img-input').click();
-            // In demo mode, we just trigger upload which will replace or add
         }
 
         function initDragAndDrop() {
             const dropZone = document.getElementById('drop-zone');
             const input = document.getElementById('img-input');
 
-            dropZone.onclick = () => input.click();
-
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            });
-
-            dropZone.addEventListener('dragleave', () => {
-                dropZone.classList.remove('dragover');
-            });
-
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
             dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 dropZone.classList.remove('dragover');
                 handleFiles(e.dataTransfer.files);
             });
-
             input.onchange = (e) => handleFiles(e.target.files);
         }
 
-        function handleFiles(files) {
+        async function handleFiles(files) {
             const box = document.getElementById('upload-progress-box');
             const fill = document.getElementById('upload-progress-fill');
             const nameLabel = document.getElementById('uploading-filename');
             const percentLabel = document.getElementById('uploading-percent');
 
-            Array.from(files).forEach(file => {
-                // Validation
-                if (!file.type.startsWith('image/')) {
-                    alert('ОШИБКА: Файл ' + file.name + ' не является изображением');
-                    return;
+            for (const file of Array.from(files)) {
+                if (!file.type.match('image/(jpeg|png|webp)')) {
+                    alert(`ОШИБКА: Формат файла ${file.name} не поддерживается`);
+                    continue;
                 }
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('ОШИБКА: Файл ' + file.name + ' слишком большой (MAX 5MB)');
-                    return;
+                if (file.size > 30 * 1024 * 1024) {
+                    alert(`ОШИБКА: Файл ${file.name} слишком велик (>30MB)`);
+                    continue;
                 }
 
                 box.style.display = 'block';
-                nameLabel.textContent = file.name;
+                nameLabel.textContent = `ЗАГРУЗКА: ${file.name}`;
                 
-                let p = 0;
-                const interval = setInterval(() => {
-                    p += 10;
-                    fill.style.width = p + '%';
-                    percentLabel.textContent = p + '%';
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/upload/image', true);
                     
-                    if (p >= 100) {
-                        clearInterval(interval);
-                        setTimeout(() => {
-                            box.style.display = 'none';
-                            // Add to demo list
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                mediaFiles.push({
-                                    id: Date.now(),
-                                    url: e.target.result,
-                                    name: file.name
-                                });
-                                renderMedia();
-                            };
-                            reader.readAsDataURL(file);
-                        }, 500);
-                    }
-                }, 50);
-            });
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const p = Math.round((e.loaded / e.total) * 100);
+                            fill.style.width = p + '%';
+                            percentLabel.textContent = p + '%';
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            loadMedia();
+                        } else {
+                            const data = JSON.parse(xhr.responseText);
+                            alert('ОШИБКА ЗАГРУЗКИ: ' + data.msg);
+                        }
+                    };
+                    xhr.send(formData);
+                } catch (e) {
+                    alert('ОШИБКА СЕТИ');
+                }
+            }
+            setTimeout(() => box.style.display = 'none', 1000);
         }
 
         function renderWhyUs() {
@@ -460,13 +473,32 @@
 
         async function saveConfig() {
             config.description = document.getElementById('edit-desc').value;
-            alert('СИСТЕМА: КОНФИГУРАЦИЯ ОБНОВЛЕНА (DEMO)');
+            const heroVal = document.getElementById('map-hero').value;
+            const dlVal = document.getElementById('map-download').value;
+            
+            if (heroVal) config.placements.hero = heroVal;
+            if (dlVal) config.placements.download = dlVal;
+
+            try {
+                const resp = await fetch('/api/update/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+                if (resp.ok) alert('СИСТЕМА: КОНФИГУРАЦИЯ ОПУБЛИКОВАНА');
+                else alert('ОШИБКА СОХРАНЕНИЯ');
+            } catch (e) {
+                alert('ОШИБКА СЕТИ');
+            }
         }
 
         function logout() {
-            localStorage.removeItem('admin_logged_in');
-            window.location.href = 'admin.html';
+            fetch('/api/logout', { method: 'POST' }).then(() => {
+                localStorage.removeItem('admin_logged_in');
+                window.location.href = 'admin.html';
+            });
         }
+    </script>
 
         // Software mock
         document.getElementById('zip-input').onchange = (e) => {
