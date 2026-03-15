@@ -29,11 +29,11 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['BACKUP_FOLDER'] = os.path.join(BASE_DIR, 'backups')
 app.config['TRASH_FOLDER'] = os.path.join(BASE_DIR, 'trash')
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Increased to 100MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 # Increased to 500MB
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
-    return jsonify({'msg': 'Файл слишком велик (макс. 100MB)'}), 413
+    return jsonify({'msg': 'Файл слишком велик (макс. 500MB)'}), 413
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -474,7 +474,7 @@ def update_software():
     file_size = os.path.getsize(temp_path)
     if file_size > app.config['MAX_CONTENT_LENGTH']:
         os.remove(temp_path)
-        return jsonify({'msg': f'Файл слишком велик (макс {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB)'}), 400
+        return jsonify({'msg': f'Файл слишком велик (макс. {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB)'}), 413
 
     checksum = calculate_sha256(temp_path)
     
