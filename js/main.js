@@ -5,16 +5,19 @@
 
     // 1. Initial State & Elements
     const init = async () => {
+        console.log('System: Starting initialization...');
         try {
             config = await loadConfig();
+            console.log('System: Config loaded');
             if (config) {
                 populateContent(config);
                 initBgCanvas();
                 initSoundEffects();
             }
         } catch (e) {
-            console.error('Initialization failed:', e);
+            console.error('System: Initialization error:', e);
         } finally {
+            console.log('System: Finalizing setup...');
             setupEventListeners();
             revealOnScroll();
             hidePreloader();

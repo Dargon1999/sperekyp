@@ -18,6 +18,21 @@
             <span>INITIALIZING SYSTEM...</span>
         </div>
     </div>
+
+    <script>
+        // Fail-safe: force hide preloader after 8 seconds if JS init hangs
+        setTimeout(function() {
+            const preloader = document.getElementById('preloader');
+            if (preloader && preloader.style.display !== 'none') {
+                console.warn('System initialization taking too long. Forcing UI display...');
+                preloader.style.opacity = '0';
+                setTimeout(() => {
+                    preloader.style.display = 'none';
+                    document.body.classList.remove('loading');
+                }, 800);
+            }
+        }, 8000);
+    </script>
     <canvas id="bg-canvas"></canvas>
 
     <!-- Fullscreen Overlay -->

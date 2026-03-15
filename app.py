@@ -396,6 +396,14 @@ def rollback():
         return jsonify({'msg': 'Rollback successful'})
     return jsonify({'msg': 'No backup found'}), 400
 
+@app.route('/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'js'), filename)
+
+@app.route('/css/<path:filename>')
+def serve_css(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'css'), filename)
+
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
