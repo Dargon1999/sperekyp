@@ -41,7 +41,7 @@ for folder in [app.config['UPLOAD_FOLDER'],
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"], storage_uri="memory://")
 
 # Models
 class Admin(db.Model):
@@ -119,12 +119,6 @@ def logout():
     resp = jsonify({'msg': 'Logged out'})
     unset_jwt_cookies(resp)
     return resp
-
-@app.route('/dashboard.html')
-@jwt_required(optional=True)
-def dashboard_page():
-    # Allow file:// access for demo, but protect via JWT if on server
-    return send_from_directory(BASE_DIR, 'dashboard.html')
 
 @app.route('/config.json')
 def get_config():
