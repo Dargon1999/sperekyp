@@ -62,8 +62,12 @@
     // 3. Populate Content
     const populateContent = (config) => {
         document.querySelectorAll('.app-version').forEach(el => el.textContent = config.version);
-        document.getElementById('app-description').textContent = config.description;
-        document.getElementById('app-size').textContent = config.file_size;
+        
+        const descEl = document.getElementById('app-description');
+        if (descEl) descEl.textContent = config.description;
+        
+        const sizeEl = document.getElementById('app-size');
+        if (sizeEl) sizeEl.textContent = config.file_size;
 
         const whyUsContainer = document.getElementById('why-us-container');
         if (whyUsContainer) {
@@ -101,9 +105,14 @@
             `).join('');
         }
 
-        document.getElementById('contact-discord').textContent = config.contacts.discord;
-        document.getElementById('contact-telegram').textContent = config.contacts.telegram;
-        document.getElementById('contact-email').textContent = config.contacts.email;
+        const discordEl = document.getElementById('contact-discord');
+        if (discordEl) discordEl.textContent = config.contacts.discord;
+        
+        const telegramEl = document.getElementById('contact-telegram');
+        if (telegramEl) telegramEl.textContent = config.contacts.telegram;
+        
+        const emailEl = document.getElementById('contact-email');
+        if (emailEl) emailEl.textContent = config.contacts.email;
     };
 
     // 4. Background Canvas (Matrix/Cyber Effect)

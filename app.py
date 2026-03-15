@@ -247,10 +247,14 @@ def serve_uploads(filename):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
-        if not Admin.query.filter_by(username='admin').first():
-            hashed_pw = bcrypt.generate_password_hash('admin123').decode('utf-8')
-            new_admin = Admin(username='admin', password_hash=hashed_pw)
-            db.session.add(new_admin)
-            db.session.commit()
+        try:
+            db.create_all()
+            if not Admin.query.filter_by(username='BossDargon').first():
+                hashed_pw = bcrypt.generate_password_hash('Sanya0811').decode('utf-8')
+                new_admin = Admin(username='BossDargon', password_hash=hashed_pw)
+                db.session.add(new_admin)
+                db.session.commit()
+                logging.info("Default admin 'BossDargon' created.")
+        except Exception as e:
+            logging.error(f"Error during database initialization: {e}")
     app.run(port=5000, debug=True)
