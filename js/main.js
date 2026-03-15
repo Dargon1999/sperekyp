@@ -1,9 +1,10 @@
 (function() {
     'use strict';
 
+    let config = null; // Global within IIFE
+
     // 1. Initial State & Elements
     const init = async () => {
-        let config = null;
         try {
             config = await loadConfig();
             if (config) {
@@ -14,7 +15,7 @@
         } catch (e) {
             console.error('Initialization failed:', e);
         } finally {
-            setupEventListeners(config); // Pass config here
+            setupEventListeners();
             revealOnScroll();
             hidePreloader();
         }
@@ -281,7 +282,7 @@
     };
 
     // 6. Events
-    const setupEventListeners = (config) => {
+    const setupEventListeners = () => {
         // Mobile Menu
         const menuToggle = document.getElementById('mobile-menu');
         const navLinks = document.querySelector('.nav-links');
