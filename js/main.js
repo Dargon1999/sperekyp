@@ -3,8 +3,9 @@
 
     // 1. Initial State & Elements
     const init = async () => {
+        let config = null;
         try {
-            const config = await loadConfig();
+            config = await loadConfig();
             if (config) {
                 populateContent(config);
                 initBgCanvas();
@@ -13,7 +14,7 @@
         } catch (e) {
             console.error('Initialization failed:', e);
         } finally {
-            setupEventListeners();
+            setupEventListeners(config); // Pass config here
             revealOnScroll();
             hidePreloader();
         }
@@ -280,7 +281,7 @@
     };
 
     // 6. Events
-    const setupEventListeners = () => {
+    const setupEventListeners = (config) => {
         // Mobile Menu
         const menuToggle = document.getElementById('mobile-menu');
         const navLinks = document.querySelector('.nav-links');
