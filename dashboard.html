@@ -107,6 +107,15 @@
             margin-top: 20px;
         }
         /* Media Specific */
+        .upload-area {
+            border: 2px dashed #333;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
         .upload-area.dragover {
             border-color: var(--primary);
             background: rgba(0, 242, 255, 0.1);
@@ -190,6 +199,22 @@
             width: 100%;
         }
 
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #222;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: var(--neon-glow);
+        }
+
         @media (max-width: 768px) {
             .sw-upload-container {
                 flex-direction: column;
@@ -236,14 +261,15 @@
             </div>
         </div>
     </div>
+
     <div class="sidebar">
         <div class="logo" style="margin-bottom: 50px;">
             <i class="fas fa-wallet"></i>
             <span>Cyber<span>Ledger</span></span>
         </div>
-        <div class="nav-item active" onclick="showSection('content')"><i class="fas fa-edit"></i> Контент</div>
-        <div class="nav-item" onclick="showSection('media')"><i class="fas fa-images"></i> Медиа</div>
-        <div class="nav-item" onclick="showSection('software')"><i class="fas fa-sync"></i> Обновление</div>
+        <div class="nav-item active" onclick="showSection('content', event)"><i class="fas fa-edit"></i> Контент</div>
+        <div class="nav-item" onclick="showSection('media', event)"><i class="fas fa-images"></i> Медиа</div>
+        <div class="nav-item" onclick="showSection('software', event)"><i class="fas fa-sync"></i> Обновление</div>
         
         <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
             <a href="index.html" class="nav-item" style="text-decoration: none;"><i class="fas fa-arrow-left"></i> На сайт</a>
@@ -280,19 +306,19 @@
             <div class="editor-group" style="margin-top: 40px; border-top: 1px solid #222; padding-top: 30px;">
                 <label>Привязка изображений (Placement)</label>
                 <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Укажите, какие изображения из библиотеки должны отображаться в конкретных блоках сайта.</p>
-                <div class="mapping-grid">
-                    <div class="mapping-card">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div style="background: #0a0a0a; border: 1px solid #222; padding: 15px;">
                         <label>Главный Hero-экран</label>
                         <select id="map-hero" onchange="updateMapping('hero', this.value)"></select>
                     </div>
-                    <div class="mapping-card">
+                    <div style="background: #0a0a0a; border: 1px solid #222; padding: 15px;">
                         <label>Фон раздела Скачивания</label>
                         <select id="map-download" onchange="updateMapping('download', this.value)"></select>
                     </div>
                 </div>
                 
                 <label style="margin-top: 20px; display: block;">Интерфейс системы (Скриншоты)</label>
-                <div id="screenshots-mapping" class="mapping-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <div id="screenshots-mapping" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
                     <!-- Динамические селекторы скриншотов -->
                 </div>
             </div>
@@ -300,17 +326,18 @@
             <button class="btn btn-primary" style="margin-top: 30px; width: 100%;" onclick="saveConfig()">Опубликовать в сеть</button>
         </div>
 
+        <!-- Media Section -->
         <div id="section-media" class="card" style="display: none;">
             <h2>Медиа-библиотека</h2>
             <div id="drop-zone" class="upload-area">
                 <i class="fas fa-cloud-upload-alt" style="font-size: 40px; color: var(--primary);"></i>
                 <p style="margin-top: 15px;">Перетащите файлы или кликните для выбора</p>
-                <p style="font-size: 10px; color: var(--text-muted);">PNG, JPG, WEBP (MAX 5MB)</p>
+                <p style="font-size: 10px; color: var(--text-muted);">PNG, JPG, WEBP (MAX 30MB)</p>
                 <input type="file" id="img-input" hidden multiple accept="image/*">
             </div>
 
-            <div id="upload-progress-box" class="upload-progress-container">
-                <div class="file-info">
+            <div id="upload-progress-box" style="display: none; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase;">
                     <span id="uploading-filename">file.jpg</span>
                     <span id="uploading-percent">0%</span>
                 </div>
@@ -351,14 +378,14 @@
             </div>
             
             <div id="sw-status" style="display: none; margin-top: 30px;">
-                <div class="file-info">
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase;">
                     <span id="sw-uploading-filename">file.exe</span>
                     <span id="sw-uploading-percent">0%</span>
                 </div>
                 <div class="progress-bar">
                     <div id="sw-progress" class="progress-fill"></div>
                 </div>
-                <div id="sw-log" class="log-box" style="margin-top: 20px; font-size: 11px; color: var(--text-muted); background: #000; padding: 10px; border: 1px solid #222; max-height: 100px; overflow-y: auto;"></div>
+                <div id="sw-log" style="margin-top: 20px; font-size: 11px; color: var(--text-muted); background: #000; padding: 10px; border: 1px solid #222; max-height: 100px; overflow-y: auto;"></div>
                 <button id="rollback-btn" class="btn btn-outline" style="margin-top: 20px; border-color: var(--accent); color: var(--accent); display: none; width: 100%;" onclick="rollback()">Откатить версию</button>
             </div>
         </div>
@@ -432,8 +459,8 @@
             
             document.getElementById('edit-img-id').value = img.id;
             document.getElementById('edit-img-name').value = img.name;
-            document.getElementById('edit-img-desc').value = img.description;
-            document.getElementById('edit-img-priority').value = img.priority;
+            document.getElementById('edit-img-desc').value = img.description || '';
+            document.getElementById('edit-img-priority').value = img.priority || 0;
             
             document.getElementById('image-edit-modal').style.display = 'flex';
         }
@@ -456,12 +483,12 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
                 });
+                const res = await resp.json();
                 if (resp.ok) {
                     closeImageModal();
                     loadMedia();
                 } else {
-                    const res = await resp.json();
-                    alert('ОШИБКА: ' + res.msg);
+                    alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
                 alert('ОШИБКА СЕТИ');
@@ -478,9 +505,12 @@
                 if (resp.ok) {
                     loadMedia();
                     loadData();
+                } else {
+                    const res = await resp.json();
+                    alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                alert('ОШИБКА: Не удалось обновить размещение');
+                alert('ОШИБКА СЕТИ');
             }
         }
 
@@ -503,7 +533,7 @@
 
             if (config && config.screenshots) {
                 screenshotsBox.innerHTML = config.screenshots.map((s, i) => `
-                    <div class="mapping-card">
+                    <div style="background: #0a0a0a; border: 1px solid #222; padding: 10px;">
                         <label style="font-size: 9px; opacity: 0.7;">Скриншот ${i+1}</label>
                         <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px;">
                             <option value="">-- Выберите --</option>
@@ -538,11 +568,14 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(config)
                 });
+                const res = await resp.json();
                 if (resp.ok) {
                     alert('СИСТЕМА: Конфигурация обновлена и опубликована');
+                } else {
+                    alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                alert('ОШИБКА СОХРАНЕНИЯ');
+                alert('ОШИБКА СЕТИ');
             }
         }
 
@@ -552,9 +585,12 @@
                 const resp = await fetch(`/api/delete/image/${id}`, { method: 'DELETE' });
                 if (resp.ok) {
                     loadMedia();
+                } else {
+                    const res = await resp.json();
+                    alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                alert('ОШИБКА ПРИ УДАЛЕНИИ');
+                alert('ОШИБКА СЕТИ');
             }
         }
 
@@ -603,9 +639,10 @@
                 xhr.onload = () => {
                     if (xhr.status === 200) {
                         loadMedia();
+                        setTimeout(() => { box.style.display = 'none'; }, 2000);
                     } else {
                         const res = JSON.parse(xhr.responseText);
-                        alert('ОШИБКА: ' + res.msg);
+                        alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                     }
                 };
                 xhr.send(formData);
@@ -631,6 +668,7 @@
                 publishBtn.style.pointerEvents = 'auto';
             };
 
+            dropZone.onclick = () => input.click();
             dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
             dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
             dropZone.addEventListener('drop', (e) => {
@@ -713,17 +751,23 @@
                 if (resp.ok) {
                     alert('СИСТЕМА: Откат выполнен');
                     loadData();
+                } else {
+                    alert('ОШИБКА ОТКАТА');
                 }
             } catch (e) {
-                alert('ОШИБКА ОТКАТА');
+                alert('ОШИБКА СЕТИ');
             }
         }
 
-        function showSection(id) {
+        function showSection(id, event) {
             document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
-            document.getElementById('section-' + id).style.display = 'block';
+            const target = document.getElementById('section-' + id);
+            if (target) target.style.display = 'block';
+            
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            event.currentTarget.classList.add('active');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
         }
 
         function addWhyUsItem() {
@@ -735,16 +779,31 @@
         function renderWhyUs() {
             const container = document.getElementById('why-us-editor');
             if (!container || !config.why_us) return;
-            container.innerHTML = config.why_us.map((item, i) => `
-                <div class="why-us-item">
-                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <input type="text" value="${item.icon}" onchange="config.why_us[${i}].icon = this.value" placeholder="Icon Class">
-                        <input type="text" value="${item.title}" onchange="config.why_us[${i}].title = this.value" placeholder="Title">
-                        <button class="action-btn del" onclick="config.why_us.splice(${i}, 1); renderWhyUs()"><i class="fas fa-times"></i></button>
+            container.innerHTML = config.why_us.map((item, i) => {
+                // Escape special characters for safe rendering
+                const safeDesc = (item.desc || '').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                return `
+                    <div class="why-us-item">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" value="${item.icon}" onchange="updateWhyUsItem(${i}, 'icon', this.value)" placeholder="Icon Class">
+                            <input type="text" value="${item.title}" onchange="updateWhyUsItem(${i}, 'title', this.value)" placeholder="Title">
+                            <button class="action-btn del" onclick="removeWhyUsItem(${i})"><i class="fas fa-times"></i></button>
+                        </div>
+                        <textarea onchange="updateWhyUsItem(${i}, 'desc', this.value)" placeholder="Description">${safeDesc}</textarea>
                     </div>
-                    <textarea onchange="config.why_us[${i}].desc = this.value" placeholder="Description">${item.desc}</textarea>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+        }
+
+        function updateWhyUsItem(i, key, val) {
+            if (config.why_us[i]) config.why_us[i][key] = val;
+        }
+
+        function removeWhyUsItem(i) {
+            if (confirm('Удалить этот модуль?')) {
+                config.why_us.splice(i, 1);
+                renderWhyUs();
+            }
         }
 
         function logout() {
@@ -753,113 +812,6 @@
                 window.location.href = 'admin.html';
             });
         }
-    </script>
-</body>
-</html>
-                    alert('ОШИБКА СЕТИ');
-                }
-            }
-            setTimeout(() => box.style.display = 'none', 1000);
-        }
-
-        function renderWhyUs() {
-            const container = document.getElementById('why-us-editor');
-            container.innerHTML = config.why_us.map((item, i) => `
-                <div class="why-us-item">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                        <span style="color: var(--primary); font-size: 10px;">MODULE_ID: ${i}</span>
-                        <i class="fas fa-times" style="color: var(--accent); cursor: pointer;" onclick="removeItem(${i})"></i>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
-                        <input type="text" value="${item.icon}" onchange="updateItem(${i}, 'icon', this.value)" placeholder="ICON_CLASS">
-                        <input type="text" value="${item.title}" onchange="updateItem(${i}, 'title', this.value)" placeholder="TITLE">
-                    </div>
-                    <textarea style="margin-top: 10px;" rows="2" onchange="updateItem(${i}, 'desc', this.value)" placeholder="DESCRIPTION">${item.desc}</textarea>
-                </div>
-            `).join('');
-        }
-
-        function updateItem(i, key, val) { config.why_us[i][key] = val; }
-        function removeItem(i) { config.why_us.splice(i, 1); renderWhyUs(); }
-        function addWhyUsItem() { config.why_us.push({icon: 'fas fa-star', title: 'NEW', desc: '...'}); renderWhyUs(); }
-
-        function showSection(id) {
-            document.querySelectorAll('.main > div').forEach(d => d.style.display = 'none');
-            document.getElementById('section-' + id).style.display = 'block';
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-        }
-
-        async function saveConfig() {
-            config.description = document.getElementById('edit-desc').value;
-            config.download_text = document.getElementById('edit-dl-text').value;
-            config.download_url = document.getElementById('edit-dl-url').value;
-            config.version = document.getElementById('edit-version').value;
-            config.version_desc = document.getElementById('edit-version-desc').value;
-            
-            const heroVal = document.getElementById('map-hero').value;
-            const dlVal = document.getElementById('map-download').value;
-            
-            if (heroVal) config.placements.hero = heroVal;
-            if (dlVal) config.placements.download = dlVal;
-
-            try {
-                const resp = await fetch('/api/update/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(config)
-                });
-                if (resp.ok) alert('СИСТЕМА: КОНФИГУРАЦИЯ ОПУБЛИКОВАНА');
-                else alert('ОШИБКА СОХРАНЕНИЯ');
-            } catch (e) {
-                alert('ОШИБКА СЕТИ');
-            }
-        }
-
-        function logout() {
-            fetch('/api/logout', { method: 'POST' }).then(() => {
-                localStorage.removeItem('admin_logged_in');
-                window.location.href = 'admin.html';
-            });
-        }
-
-        async function rollback() {
-            if (!confirm('Вы уверены, что хотите откатить систему к предыдущей версии?')) return;
-            try {
-                const resp = await fetch('/api/update/rollback', { method: 'POST' });
-                if (resp.ok) {
-                    alert('СИСТЕМА: ОТКАТ ВЫПОЛНЕН УСПЕШНО');
-                    loadData();
-                } else {
-                    alert('ОШИБКА: Бэкап не найден');
-                }
-            } catch (e) {
-                alert('ОШИБКА СЕТИ');
-            }
-        }
-
-        // Software mock
-        document.getElementById('zip-input').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('sw-status').style.display = 'block';
-            const log = document.getElementById('sw-log');
-            const progress = document.getElementById('sw-progress');
-            
-            log.innerHTML = `> INITIALIZING UPDATE: ${file.name}<br>`;
-            let p = 0;
-            const inv = setInterval(() => {
-                p += 5;
-                progress.style.width = p + '%';
-                log.innerHTML += `> DEPLOYING MODULES... ${p}%<br>`;
-                log.scrollTop = log.scrollHeight;
-                if (p >= 100) {
-                    clearInterval(inv);
-                    log.innerHTML += `> UPDATE COMPLETE. SYSTEM STABLE.<br>`;
-                    document.getElementById('rollback-btn').style.display = 'block';
-                }
-            }, 100);
-        };
     </script>
 </body>
 </html>

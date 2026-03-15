@@ -76,6 +76,24 @@ class ImageMetadata(db.Model):
 with app.app_context():
     try:
         db.create_all()
+        # Add missing columns for ImageMetadata if they don't exist (simple migration)
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                # SQLite-specific migration
+                columns = [c[1] for c in conn.execute(text("PRAGMA table_info(image_metadata)")).fetchall()]
+                if 'name' not in columns:
+                    conn.execute(text("ALTER TABLE image_metadata ADD COLUMN name VARCHAR(255)"))
+                if 'description' not in columns:
+                    conn.execute(text("ALTER TABLE image_metadata ADD COLUMN description TEXT"))
+                if 'priority' not in columns:
+                    conn.execute(text("ALTER TABLE image_metadata ADD COLUMN priority INTEGER DEFAULT 0"))
+                if 'hash' not in columns:
+                    conn.execute(text("ALTER TABLE image_metadata ADD COLUMN hash VARCHAR(64) UNIQUE"))
+                conn.commit()
+        except Exception as e:
+            logging.warning(f"Migration warning: {e}")
+
         if not Admin.query.filter_by(username='BossDargon').first():
             hashed_pw = bcrypt.generate_password_hash('Sanya0811').decode('utf-8')
             new_admin = Admin(username='BossDargon', password_hash=hashed_pw)
@@ -403,6 +421,9 @@ def update_software():
     # 1. Backup current config
     config_json_path = update_config_path('config.json')
     if os.path.exists(config_json_path):
+        # Always keep the very last stable version for quick rollback
+        shutil.copy(config_json_path, os.path.join(app.config['BACKUP_FOLDER'], 'config_last.json'))
+        # Also keep a timestamped version for history
         shutil.copy(config_json_path, os.path.join(app.config['BACKUP_FOLDER'], f"config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"))
 
     # 2. Update config.json
