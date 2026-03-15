@@ -29,7 +29,16 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['BACKUP_FOLDER'] = os.path.join(BASE_DIR, 'backups')
 app.config['TRASH_FOLDER'] = os.path.join(BASE_DIR, 'trash')
-app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024 # 30MB
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Increased to 100MB
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({'msg': 'Файл слишком велик (макс. 100MB)'}), 413
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logging.error(f"Unhandled Exception: {str(e)}")
+    return jsonify({'msg': 'Внутренняя ошибка сервера', 'error': str(e)}), 500
 
 # Ensure directories exist
 for folder in [app.config['UPLOAD_FOLDER'], 

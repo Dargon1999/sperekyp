@@ -429,17 +429,24 @@
                 const resp = await fetch('/config.json?v=' + new Date().getTime());
                 if (!resp.ok) throw new Error();
                 config = await resp.json();
-                document.getElementById('edit-desc').value = config.description || '';
-                document.getElementById('edit-dl-text').value = config.download_text || 'СКАЧАТЬ ВЕРСИЮ 9.3.0';
-                document.getElementById('edit-dl-url').value = config.download_url || '#';
                 
-                // Sync version fields
+                // Safe element access
+                const setVal = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = val || '';
+                };
+
+                setVal('edit-desc', config.description);
+                setVal('edit-dl-text', config.download_text || 'СКАЧАТЬ ВЕРСИЮ 9.3.0');
+                setVal('edit-dl-url', config.download_url || '#');
+                
                 const version = config.version || '9.3.0';
                 const versionDesc = config.version_desc || '';
-                document.getElementById('edit-version').value = version;
-                document.getElementById('edit-version-desc').value = versionDesc;
-                document.getElementById('sw-edit-version').value = version;
-                document.getElementById('sw-edit-version-desc').value = versionDesc;
+                
+                setVal('edit-version', version);
+                setVal('edit-version-desc', versionDesc);
+                setVal('sw-edit-version', version);
+                setVal('sw-edit-version-desc', versionDesc);
                 
                 // Ensure screenshots array exists
                 if (!config.screenshots) config.screenshots = [];
@@ -454,11 +461,17 @@
         }
 
         function syncVersion(val) {
-            document.getElementById('edit-version').value = val;
+            const el1 = document.getElementById('edit-version');
+            const el2 = document.getElementById('sw-edit-version');
+            if (el1) el1.value = val;
+            if (el2) el2.value = val;
         }
 
         function syncVersionDesc(val) {
-            document.getElementById('edit-version-desc').value = val;
+            const el1 = document.getElementById('edit-version-desc');
+            const el2 = document.getElementById('sw-edit-version-desc');
+            if (el1) el1.value = val;
+            if (el2) el2.value = val;
         }
 
         async function loadMedia() {
@@ -796,7 +809,14 @@
                 publishBtn.style.opacity = '1';
                 
                 if (xhr.status === 200) {
-                    const res = JSON.parse(xhr.responseText);
+                    let res;
+                    try {
+                        res = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        console.error("Malformed JSON response", xhr.responseText);
+                        alert("ОШИБКА: Сервер вернул некорректный ответ");
+                        return;
+                    }
                     logBox.innerHTML += `<div style="color: var(--primary)">[${new Date().toLocaleTimeString()}] ${res.msg}</div>`;
                     logBox.innerHTML += `<div style="color: var(--text-muted)">HASH: ${res.hash}</div>`;
                     document.getElementById('edit-dl-url').value = res.url;
@@ -813,7 +833,12 @@
                     publishBtn.style.pointerEvents = 'none';
                     document.getElementById('rollback-btn').style.display = 'block';
                 } else {
-                    const res = JSON.parse(xhr.responseText);
+                    let res;
+                    try {
+                        res = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        res = { msg: "Неизвестная ошибка сервера (код " + xhr.status + ")" };
+                    }
                     logBox.innerHTML += `<div style="color: var(--accent)">[${new Date().toLocaleTimeString()}] ОШИБКА: ${res.msg}</div>`;
                     alert('ОШИБКА ПУБЛИКАЦИИ: ' + res.msg);
                 }
