@@ -647,11 +647,16 @@
                     return;
                 }
 
-                config.description = document.getElementById('edit-desc').value;
-                config.download_text = document.getElementById('edit-dl-text').value;
-                config.download_url = document.getElementById('edit-dl-url').value;
-                config.version = document.getElementById('edit-version').value;
-                config.version_desc = document.getElementById('edit-version-desc').value;
+                const getVal = (id) => {
+                    const el = document.getElementById(id);
+                    return el ? el.value : '';
+                };
+
+                config.description = getVal('edit-desc');
+                config.download_text = getVal('edit-dl-text');
+                config.download_url = getVal('edit-dl-url');
+                config.version = getVal('edit-version');
+                config.version_desc = getVal('edit-version-desc');
                 
                 // Clean up screenshots (remove empty ones)
                 if (config.screenshots) {
@@ -671,12 +676,13 @@
                     if (!silent) alert('СИСТЕМА: Конфигурация обновлена и опубликована');
                     loadData(); // Refresh UI with cleaned config
                 } else {
-                    const res = await resp.json();
+                    let res;
+                    try { res = await resp.json(); } catch(e) { res = {msg: 'Ошибка сервера'}; }
                     if (!silent) alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
                 console.error("Save error:", e);
-                if (!silent) alert('ОШИБКА СЕТИ: Не удалось связаться с сервером');
+                if (!silent) alert('ОШИБКА СЕТИ: Не удалось сохранить изменения. Проверьте консоль браузера.');
             }
         }
 
