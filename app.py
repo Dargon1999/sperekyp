@@ -406,6 +406,12 @@ def update_software():
     temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_sw_{original_filename}")
     file.save(temp_path)
     
+    # Security: check if file is too large before moving
+    file_size = os.path.getsize(temp_path)
+    if file_size > app.config['MAX_CONTENT_LENGTH']:
+        os.remove(temp_path)
+        return jsonify({'msg': f'Файл слишком велик (макс {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB)'}), 400
+
     checksum = calculate_sha256(temp_path)
     
     # Unique filename to avoid collisions but keep original name part
@@ -414,7 +420,7 @@ def update_software():
 
     if os.path.exists(filepath):
         os.remove(temp_path)
-        # Still update config if it's the same file but maybe config was changed
+        # Already exists, just use existing
     else:
         shutil.move(temp_path, filepath)
 
@@ -433,7 +439,7 @@ def update_software():
             
             if filename.lower().endswith('.exe'):
                 config['download_url'] = f'/uploads/software/{filename}'
-                config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                config['file_size'] = f"{file_size / (1024*1024):.1f} MB"
                 log_action(f"EXE Software published: {filename} (SHA256: {checksum[:8]})")
                 msg = 'EXE загружен и опубликован'
                 
@@ -444,13 +450,13 @@ def update_software():
                         new_version = update_info.get('version', 'unknown')
                         config['version'] = new_version
                         config['download_url'] = f'/uploads/software/{filename}'
-                        config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                        config['file_size'] = f"{file_size / (1024*1024):.1f} MB"
                         log_action(f"ZIP Software update published: v{new_version}")
                         msg = f'ZIP обновление v{new_version} установлено и опубликовано'
                     else:
                         # If no update.json, just treat as a downloadable zip
                         config['download_url'] = f'/uploads/software/{filename}'
-                        config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                        config['file_size'] = f"{file_size / (1024*1024):.1f} MB"
                         log_action(f"ZIP Software published (no update.json): {filename}")
                         msg = 'ZIP загружен и опубликован'
             

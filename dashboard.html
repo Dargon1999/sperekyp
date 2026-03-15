@@ -405,7 +405,7 @@
 
         async function loadData() {
             try {
-                const resp = await fetch('/config.json');
+                const resp = await fetch('/config.json?v=' + new Date().getTime());
                 if (!resp.ok) throw new Error();
                 config = await resp.json();
                 document.getElementById('edit-desc').value = config.description || '';
@@ -413,9 +413,16 @@
                 document.getElementById('edit-dl-url').value = config.download_url || '#';
                 document.getElementById('edit-version').value = config.version || '9.3.0';
                 document.getElementById('edit-version-desc').value = config.version_desc || '';
+                
+                // Ensure screenshots array exists
+                if (!config.screenshots) config.screenshots = [];
+                // Ensure placements object exists
+                if (!config.placements) config.placements = { hero: '', download: '' };
+                
                 renderWhyUs();
+                renderPlacementSelectors(); // Added this call
             } catch (e) {
-                console.warn("Failed to load config");
+                console.warn("Failed to load config", e);
             }
         }
 
@@ -532,20 +539,30 @@
             }
 
             if (config && config.screenshots) {
-                screenshotsBox.innerHTML = config.screenshots.map((s, i) => `
-                    <div style="background: #0a0a0a; border: 1px solid #222; padding: 10px;">
-                        <label style="font-size: 9px; opacity: 0.7;">Скриншот ${i+1}</label>
-                        <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px;">
-                            <option value="">-- Выберите --</option>
-                            ${mediaFiles.map(f => `<option value="${f.url}" ${f.url === s.url ? 'selected' : ''}>${f.name}</option>`).join('')}
-                        </select>
-                    </div>
-                `).join('');
+                // Determine number of screenshots based on config or default to 5
+                const count = Math.max(config.screenshots.length, 5);
+                let html = '';
+                for (let i = 0; i < count; i++) {
+                    const currentUrl = config.screenshots[i] ? config.screenshots[i].url : '';
+                    html += `
+                        <div style="background: #0a0a0a; border: 1px solid #222; padding: 10px;">
+                            <label style="font-size: 9px; opacity: 0.7;">Скриншот ${i+1}</label>
+                            <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px; width: 100%;">
+                                <option value="">-- Выберите --</option>
+                                ${mediaFiles.map(f => `<option value="${f.url}" ${f.url === currentUrl ? 'selected' : ''}>${f.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+                }
+                screenshotsBox.innerHTML = html;
             }
         }
 
         function updateScreenshot(index, val) {
-            if (config.screenshots && config.screenshots[index]) {
+            if (!config.screenshots) config.screenshots = [];
+            if (!config.screenshots[index]) {
+                config.screenshots[index] = { url: val, title: `Screenshot ${index + 1}` };
+            } else {
                 config.screenshots[index].url = val;
             }
         }
@@ -562,6 +579,11 @@
                 config.download_url = document.getElementById('edit-dl-url').value;
                 config.version = document.getElementById('edit-version').value;
                 config.version_desc = document.getElementById('edit-version-desc').value;
+                
+                // Clean up screenshots (remove empty ones)
+                if (config.screenshots) {
+                    config.screenshots = config.screenshots.filter(s => s && s.url);
+                }
 
                 const resp = await fetch('/api/update/config', {
                     method: 'POST',
@@ -571,6 +593,7 @@
                 const res = await resp.json();
                 if (resp.ok) {
                     alert('СИСТЕМА: Конфигурация обновлена и опубликована');
+                    loadData(); // Refresh UI with cleaned config
                 } else {
                     alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
