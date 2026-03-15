@@ -40,7 +40,7 @@
                 return getFallbackConfig();
             }
             
-            const response = await fetch('config.json', { signal: controller.signal });
+            const response = await fetch('/config.json', { signal: controller.signal });
             clearTimeout(timeoutId);
             
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
