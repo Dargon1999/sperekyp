@@ -3,26 +3,51 @@
 
     // 1. Initial State & Elements
     const init = async () => {
-        const config = await loadConfig();
-        if (config) {
-            populateContent(config);
-            initBgCanvas();
-            initSoundEffects();
+        try {
+            const config = await loadConfig();
+            if (config) {
+                populateContent(config);
+                initBgCanvas();
+                initSoundEffects();
+            }
+        } catch (e) {
+            console.error('Initialization failed:', e);
+        } finally {
+            setupEventListeners();
+            revealOnScroll();
+            hidePreloader();
         }
-        setupEventListeners();
-        revealOnScroll();
     };
 
-    // 2. Load config.json
+    const hidePreloader = () => {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+            preloader.style.opacity = '0';
+            setTimeout(() => {
+                preloader.style.display = 'none';
+                document.body.classList.remove('loading');
+            }, 800);
+        }
+    };
+
+    // 2. Load config.json with Timeout
     const loadConfig = async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+
         try {
             if (window.location.protocol === 'file:') {
                 return getFallbackConfig();
             }
-            const response = await fetch('config.json');
+            
+            const response = await fetch('config.json', { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return await response.json();
         } catch (error) {
-            console.error('Error loading config, using fallback:', error);
+            clearTimeout(timeoutId);
+            console.warn('Config fetch failed or timed out, using fallback:', error.name === 'AbortError' ? 'Timeout' : error.message);
             return getFallbackConfig();
         }
     };
@@ -61,73 +86,77 @@
 
     // 3. Populate Content
     const populateContent = (config) => {
-        document.querySelectorAll('.app-version').forEach(el => el.textContent = config.version);
-        
-        const descEl = document.getElementById('app-description');
-        if (descEl) descEl.textContent = config.description;
-        
-        const sizeEl = document.getElementById('app-size');
-        if (sizeEl) sizeEl.textContent = config.file_size;
-
-        // Apply Dynamic Placements
-        if (config.placements) {
-            const heroImg = document.getElementById('hero-img');
-            if (heroImg && config.placements.hero) {
-                heroImg.src = config.placements.hero;
-            }
+        try {
+            document.querySelectorAll('.app-version').forEach(el => el.textContent = config.version);
             
-            const downloadSection = document.getElementById('download');
-            if (downloadSection && config.placements.download) {
-                downloadSection.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url(${config.placements.download})`;
-                downloadSection.style.backgroundSize = 'cover';
-                downloadSection.style.backgroundPosition = 'center';
+            const descEl = document.getElementById('app-description');
+            if (descEl) descEl.textContent = config.description;
+            
+            const sizeEl = document.getElementById('app-size');
+            if (sizeEl) sizeEl.textContent = config.file_size;
+
+            // Apply Dynamic Placements
+            if (config.placements) {
+                const heroImg = document.getElementById('hero-img');
+                if (heroImg && config.placements.hero) {
+                    heroImg.src = config.placements.hero;
+                }
+                
+                const downloadSection = document.getElementById('download');
+                if (downloadSection && config.placements.download) {
+                    downloadSection.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url(${config.placements.download})`;
+                    downloadSection.style.backgroundSize = 'cover';
+                    downloadSection.style.backgroundPosition = 'center';
+                }
             }
-        }
 
-        const whyUsContainer = document.getElementById('why-us-container');
-        if (whyUsContainer) {
-            whyUsContainer.innerHTML = config.why_us.map(item => `
-                <div class="feature-card reveal-up">
-                    <i class="${item.icon}"></i>
-                    <h3>${item.title}</h3>
-                    <p>${item.desc}</p>
-                </div>
-            `).join('');
-        }
-
-        const featuresContainer = document.getElementById('features-container');
-        if (featuresContainer) {
-            featuresContainer.innerHTML = config.features.map(cat => `
-                <div class="feature-category" style="grid-column: 1/-1; margin-top: 40px;">
-                    <h3>${cat.category}</h3>
-                </div>
-                ${cat.items.map(f => `
+            const whyUsContainer = document.getElementById('why-us-container');
+            if (whyUsContainer && config.why_us) {
+                whyUsContainer.innerHTML = config.why_us.map(item => `
                     <div class="feature-card reveal-up">
-                        <i class="${f.icon}"></i>
-                        <h3>${f.title}</h3>
-                        <p>${f.desc}</p>
+                        <i class="${item.icon}"></i>
+                        <h3>${item.title}</h3>
+                        <p>${item.desc}</p>
                     </div>
-                `).join('')}
-            `).join('');
-        }
+                `).join('');
+            }
 
-        const screenshotsContainer = document.getElementById('screenshots-container');
-        if (screenshotsContainer) {
-            screenshotsContainer.innerHTML = config.screenshots.map(s => `
-                <div class="screenshot-item reveal-up">
-                    <img src="${s.url}" alt="${s.title}">
-                </div>
-            `).join('');
-        }
+            const featuresContainer = document.getElementById('features-container');
+            if (featuresContainer && config.features) {
+                featuresContainer.innerHTML = config.features.map(cat => `
+                    <div class="feature-category" style="grid-column: 1/-1; margin-top: 40px;">
+                        <h3>${cat.category}</h3>
+                    </div>
+                    ${cat.items.map(f => `
+                        <div class="feature-card reveal-up">
+                            <i class="${f.icon}"></i>
+                            <h3>${f.title}</h3>
+                            <p>${f.desc}</p>
+                        </div>
+                    `).join('')}
+                `).join('');
+            }
 
-        const discordEl = document.getElementById('contact-discord');
-        if (discordEl) discordEl.textContent = config.contacts.discord;
-        
-        const telegramEl = document.getElementById('contact-telegram');
-        if (telegramEl) telegramEl.textContent = config.contacts.telegram;
-        
-        const emailEl = document.getElementById('contact-email');
-        if (emailEl) emailEl.textContent = config.contacts.email;
+            const screenshotsContainer = document.getElementById('screenshots-container');
+            if (screenshotsContainer && config.screenshots) {
+                screenshotsContainer.innerHTML = config.screenshots.map(s => `
+                    <div class="screenshot-item reveal-up">
+                        <img src="${s.url}" alt="${s.title}">
+                    </div>
+                `).join('');
+            }
+
+            const discordEl = document.getElementById('contact-discord');
+            if (discordEl && config.contacts) discordEl.textContent = config.contacts.discord;
+            
+            const telegramEl = document.getElementById('contact-telegram');
+            if (telegramEl && config.contacts) telegramEl.textContent = config.contacts.telegram;
+            
+            const emailEl = document.getElementById('contact-email');
+            if (emailEl && config.contacts) emailEl.textContent = config.contacts.email;
+        } catch (err) {
+            console.error('Error populating content:', err);
+        }
     };
 
     // 4. Background Canvas (Matrix/Cyber Effect)
