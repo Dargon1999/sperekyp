@@ -479,14 +479,12 @@ def update_software():
     checksum = calculate_sha256(temp_path)
     
     # Unique filename to avoid collisions but keep original name part
-    filename = f"{checksum[:8]}_{original_filename}"
+    # Update: Final filename should strictly be MoneyTracker.exe as per request
+    filename = "MoneyTracker.exe"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'software', filename)
 
-    if os.path.exists(filepath):
-        os.remove(temp_path)
-        # Already exists, just use existing
-    else:
-        shutil.move(temp_path, filepath)
+    # Check for duplicates or hash conflicts if needed, but here we overwrite for MoneyTracker.exe
+    shutil.move(temp_path, filepath)
 
     # 1. Backup current config
     config_json_path = update_config_path('config.json')
@@ -508,6 +506,10 @@ def update_software():
             if config_version:
                 config['version'] = config_version
                 logging.info(f"Version updated in config to: {config_version}")
+
+            # Store the SHA-256 hash in config metadata instead of filename
+            config['software_hash'] = checksum
+            logging.info(f"SHA256 Hash stored in config: {checksum}")
 
             if filename.lower().endswith('.exe'):
                 config['download_url'] = f'/uploads/software/{filename}'

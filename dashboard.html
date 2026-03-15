@@ -641,6 +641,12 @@
 
         async function saveConfig(silent = false) {
             try {
+                // Ensure config exists
+                if (!config) {
+                    console.error("Config not loaded");
+                    return;
+                }
+
                 config.description = document.getElementById('edit-desc').value;
                 config.download_text = document.getElementById('edit-dl-text').value;
                 config.download_url = document.getElementById('edit-dl-url').value;
@@ -652,20 +658,25 @@
                     config.screenshots = config.screenshots.filter(s => s && s.url);
                 }
 
+                console.log("Saving config:", config);
+
                 const resp = await fetch('/api/update/config', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(config)
                 });
-                const res = await resp.json();
+                
                 if (resp.ok) {
+                    const res = await resp.json();
                     if (!silent) alert('СИСТЕМА: Конфигурация обновлена и опубликована');
                     loadData(); // Refresh UI with cleaned config
                 } else {
+                    const res = await resp.json();
                     if (!silent) alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                if (!silent) alert('ОШИБКА СЕТИ');
+                console.error("Save error:", e);
+                if (!silent) alert('ОШИБКА СЕТИ: Не удалось связаться с сервером');
             }
         }
 
