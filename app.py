@@ -77,9 +77,24 @@ def calculate_sha256(filepath):
 def index():
     return send_from_directory(BASE_DIR, 'index.html')
 
+@app.route('/admin')
 @app.route('/admin.html')
 def admin_page():
     return send_from_directory(BASE_DIR, 'admin.html')
+
+@app.route('/dashboard')
+@app.route('/dashboard.html')
+@jwt_required(optional=True)
+def dashboard_page():
+    # Проверка JWT для защиты на сервере
+    identity = get_jwt_identity()
+    if not identity and window_protocol() != 'file:':
+        return redirect('/admin')
+    return send_from_directory(BASE_DIR, 'dashboard.html')
+
+def window_protocol():
+    # Вспомогательная функция для определения протокола (эмуляция для Flask)
+    return request.headers.get('X-Forwarded-Proto', 'http')
 
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -88,16 +103,16 @@ def login():
     username = data.get('username')
     password = data.get('password')
     
-    admin = Admin.query.filter_by(username=username).first()
-    if admin and bcrypt.check_password_hash(admin.password_hash, password):
+    # Жестко заданные учетные данные: BossDargon / Sanya0811
+    if username == "BossDargon" and password == "Sanya0811":
         access_token = create_access_token(identity=username)
         log_action(f"Successful login: {username}")
-        resp = jsonify({'msg': 'Login successful', 'redirect': url_for('dashboard_page')})
+        resp = jsonify({'msg': 'Login successful', 'redirect': '/dashboard'})
         set_access_cookies(resp, access_token)
         return resp
     
     log_action(f"Failed login attempt: {username}")
-    return jsonify({'msg': 'Invalid credentials'}), 401
+    return jsonify({'msg': 'Неверный логин или пароль'}), 401
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
