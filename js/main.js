@@ -125,7 +125,9 @@
     // 3. Populate Content
     const populateContent = (config) => {
         try {
-            document.querySelectorAll('.app-version').forEach(el => el.textContent = config.version);
+            document.querySelectorAll('.app-version').forEach(el => {
+                el.textContent = config.version || '9.3.0';
+            });
             
             const descEl = document.getElementById('app-description');
             if (descEl) descEl.textContent = config.description;

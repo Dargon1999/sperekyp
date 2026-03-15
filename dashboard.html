@@ -262,11 +262,21 @@
 
         <!-- Software Section -->
         <div id="section-software" class="card" style="display: none;">
-            <h2>Развертывание ПО</h2>
+            <h2>Управление версиями ПО</h2>
+            
+            <div class="editor-group" style="margin-bottom: 30px;">
+                <label>Текущая версия системы</label>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
+                    <input type="text" id="edit-version" placeholder="Напр: 9.3.0">
+                    <input type="text" id="edit-version-desc" placeholder="Краткое описание изменений">
+                </div>
+            </div>
+
             <div class="upload-area" onclick="document.getElementById('zip-input').click()">
-                <i class="fas fa-microchip" style="font-size: 40px; color: var(--primary);"></i>
-                <p style="margin-top: 15px;">Загрузить пакет обновления (.ZIP)</p>
-                <input type="file" id="zip-input" hidden accept=".zip">
+                <i class="fas fa-file-executable" style="font-size: 40px; color: var(--primary);"></i>
+                <p style="margin-top: 15px;">Загрузить новый EXE или ZIP пакет</p>
+                <p style="font-size: 10px; color: var(--text-muted);">Система автоматически обновит ссылку на скачивание</p>
+                <input type="file" id="zip-input" hidden accept=".exe,.zip">
             </div>
             
             <div id="sw-status" style="display: none; margin-top: 30px;">
@@ -302,6 +312,8 @@
                 document.getElementById('edit-desc').value = config.description;
                 document.getElementById('edit-dl-text').value = config.download_text || 'СКАЧАТЬ ВЕРСИЮ 9.3.0';
                 document.getElementById('edit-dl-url').value = config.download_url || '#';
+                document.getElementById('edit-version').value = config.version || '9.3.0';
+                document.getElementById('edit-version-desc').value = config.version_desc || '';
                 renderWhyUs();
             } catch (e) {
                 console.warn("Using local/demo data");
@@ -524,6 +536,8 @@
             config.description = document.getElementById('edit-desc').value;
             config.download_text = document.getElementById('edit-dl-text').value;
             config.download_url = document.getElementById('edit-dl-url').value;
+            config.version = document.getElementById('edit-version').value;
+            config.version_desc = document.getElementById('edit-version-desc').value;
             
             const heroVal = document.getElementById('map-hero').value;
             const dlVal = document.getElementById('map-download').value;
