@@ -377,6 +377,58 @@ def update_hero():
 def update_config_path(filename):
     return os.path.join(BASE_DIR, filename)
 
+@app.route('/api/download/screenshots')
+@jwt_required()
+def download_screenshots():
+    try:
+        config_path = update_config_path('config.json')
+        if not os.path.exists(config_path):
+            return jsonify({'msg': 'Конфигурация не найдена'}), 404
+            
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            
+        screenshots = config.get('screenshots', [])
+        if not screenshots:
+            return jsonify({'msg': 'Скриншоты не настроены'}), 400
+            
+        # Create a temporary ZIP file
+        zip_filename = f"screenshots_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        zip_path = os.path.join(app.config['UPLOAD_FOLDER'], zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for i, s in enumerate(screenshots):
+                if not s.get('url'): continue
+                
+                # Extract filename from URL (e.g., /uploads/images/abc.jpg)
+                url_path = s['url'].replace('/uploads/images/', '')
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'images', url_path)
+                
+                if os.path.exists(file_path):
+                    # Add to zip with a clean name
+                    ext = os.path.splitext(file_path)[1]
+                    zipf.write(file_path, f"screenshot_{i+1}{ext}")
+        
+        # Log action and send file
+        log_action(f"Generated screenshots archive: {zip_filename}")
+        
+        @after_this_request
+        def remove_file(response):
+            try:
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+            except Exception as e:
+                logging.error(f"Error removing temporary zip: {e}")
+            return response
+
+        return send_from_directory(app.config['UPLOAD_FOLDER'], zip_filename, as_attachment=True)
+        
+    except Exception as e:
+        logging.error(f"Error generating zip: {e}")
+        return jsonify({'msg': f'Ошибка генерации архива: {str(e)}'}), 500
+
+from flask import after_this_request
+
 @app.route('/api/update/config', methods=['POST'])
 @jwt_required()
 def update_config():
@@ -395,6 +447,9 @@ def update_software():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'msg': 'Имя файла пустое'}), 400
+
+    # Get version from form if exists
+    config_version = request.form.get('version')
 
     original_filename = secure_filename(file.filename)
     
@@ -434,14 +489,22 @@ def update_software():
 
     # 2. Update config.json
     try:
+        # Detailed logging for update process
+        logging.info(f"Starting software publication: {filename} (v{config_version})")
+        
         with open(config_json_path, 'r+', encoding='utf-8') as f:
             config = json.load(f)
             
+            # Explicitly update version from request if provided
+            if config_version:
+                config['version'] = config_version
+                logging.info(f"Version updated in config to: {config_version}")
+
             if filename.lower().endswith('.exe'):
                 config['download_url'] = f'/uploads/software/{filename}'
                 config['file_size'] = f"{file_size / (1024*1024):.1f} MB"
-                log_action(f"EXE Software published: {filename} (SHA256: {checksum[:8]})")
-                msg = 'EXE загружен и опубликован'
+                log_action(f"EXE Software published: {filename} (v{config.get('version', 'unknown')}, SHA256: {checksum[:8]})")
+                msg = f'EXE v{config.get("version")} загружен и опубликован'
                 
             elif filename.lower().endswith('.zip'):
                 with zipfile.ZipFile(filepath, 'r') as zip_ref:
@@ -454,7 +517,6 @@ def update_software():
                         log_action(f"ZIP Software update published: v{new_version}")
                         msg = f'ZIP обновление v{new_version} установлено и опубликовано'
                     else:
-                        # If no update.json, just treat as a downloadable zip
                         config['download_url'] = f'/uploads/software/{filename}'
                         config['file_size'] = f"{file_size / (1024*1024):.1f} MB"
                         log_action(f"ZIP Software published (no update.json): {filename}")
@@ -464,7 +526,12 @@ def update_software():
             json.dump(config, f, indent=4, ensure_ascii=False)
             f.truncate()
             
-        return jsonify({'msg': msg, 'hash': checksum, 'url': config['download_url']})
+        return jsonify({
+            'msg': msg, 
+            'hash': checksum, 
+            'url': config['download_url'], 
+            'version': config.get('version')
+        })
         
     except Exception as e:
         log_action(f"Software update FAILED: {str(e)}")

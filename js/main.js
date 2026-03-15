@@ -362,11 +362,16 @@
                             clearInterval(interval);
                             status.textContent = 'ГОТОВО! НАЧИНАЕМ ЗАГРУЗКУ...';
                             
-                            // Trigger actual file download
-                            const downloadUrl = (config && config.download_url) ? config.download_url : '#';
+                            // Trigger actual file download with cache buster
+                            const ts = new Date().getTime();
+                            const baseUrl = (config && config.download_url) ? config.download_url : '#';
+                            const downloadUrl = baseUrl.includes('?') ? `${baseUrl}&v=${ts}` : `${baseUrl}?v=${ts}`;
+                            
                             const link = document.createElement('a');
                             link.href = downloadUrl;
-                            link.download = downloadUrl.split('/').pop() || 'MoneyTracker.exe';
+                            // Ensure the original filename is used for the download
+                            const filename = baseUrl.split('/').pop().split('?')[0] || 'MoneyTracker.exe';
+                            link.download = filename;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);

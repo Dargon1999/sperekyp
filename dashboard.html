@@ -318,8 +318,16 @@
                 </div>
                 
                 <label style="margin-top: 20px; display: block;">Интерфейс системы (Скриншоты)</label>
-                <div id="screenshots-mapping" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <div id="screenshots-mapping" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 10px;">
                     <!-- Динамические селекторы скриншотов -->
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn btn-outline" style="flex: 2; border-style: dashed;" onclick="addScreenshotSlot()">
+                        <i class="fas fa-plus"></i> ДОБАВИТЬ СКРИНШОТ
+                    </button>
+                    <button id="download-screenshots-btn" class="btn btn-outline" style="flex: 1; border-color: var(--primary); color: var(--primary);" onclick="downloadScreenshotsArchive()">
+                        <i class="fas fa-download"></i> СКАЧАТЬ ВСЕ (ZIP)
+                    </button>
                 </div>
             </div>
             
@@ -331,7 +339,7 @@
             <h2>Медиа-библиотека</h2>
             <div id="drop-zone" class="upload-area">
                 <i class="fas fa-cloud-upload-alt" style="font-size: 40px; color: var(--primary);"></i>
-                <p style="margin-top: 15px;">Перетащите файлы или кликните для выбора</p>
+                <p style="margin-top: 15px;">Перетащите фотографии или кликните для выбора</p>
                 <p style="font-size: 10px; color: var(--text-muted);">PNG, JPG, WEBP (MAX 30MB)</p>
                 <input type="file" id="img-input" hidden multiple accept="image/*">
             </div>
@@ -346,35 +354,48 @@
                 </div>
             </div>
 
-            <div class="media-grid" id="media-list"></div>
+            <div class="media-grid" id="media-list">
+                <!-- Сюда будут подгружаться фото -->
+            </div>
         </div>
 
         <!-- Software Section -->
         <div id="section-software" class="card" style="display: none;">
             <h2>Управление версиями ПО</h2>
             
-            <div class="editor-group" style="margin-bottom: 30px;">
-                <label>Текущая версия системы</label>
-                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
-                    <input type="text" id="edit-version" placeholder="Напр: 9.3.0">
-                    <input type="text" id="edit-version-desc" placeholder="Краткое описание изменений">
+            <div class="editor-group" style="margin-bottom: 30px; background: rgba(0,242,255,0.03); padding: 20px; border: 1px solid rgba(0,242,255,0.1);">
+                <label style="color: var(--primary); font-weight: bold;">1. УКАЖИТЕ ВЕРСИЮ И ОПИСАНИЕ</label>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 10px;">
+                    <input type="text" id="sw-edit-version" placeholder="Напр: 9.3.5" onchange="syncVersion(this.value)">
+                    <input type="text" id="sw-edit-version-desc" placeholder="Краткое описание изменений (что нового?)" onchange="syncVersionDesc(this.value)">
+                </div>
+                <p style="font-size: 10px; color: var(--text-muted); margin-top: 5px;">* Версия изменится на сайте сразу после нажатия кнопки "Опубликовать изменения" ниже.</p>
+            </div>
+
+            <div class="editor-group" style="margin-bottom: 30px; background: rgba(255,255,255,0.03); padding: 20px; border: 1px solid #333;">
+                <label style="color: #fff; font-weight: bold;">2. ЗАГРУЗИТЕ ФАЙЛ (EXE ИЛИ ZIP)</label>
+                <div class="upload-area" id="sw-drop-zone" style="margin-top: 10px;">
+                    <i class="fas fa-file-executable" style="font-size: 40px; color: var(--primary);"></i>
+                    <p style="margin-top: 15px;" id="sw-file-name">Выберите файл или перетащите его сюда</p>
+                    <p style="font-size: 10px; color: var(--text-muted);">Максимальный размер: 30MB</p>
+                    <input type="file" id="sw-input" hidden accept=".exe,.zip">
+                </div>
+
+                <div class="sw-upload-container">
+                    <button class="btn btn-outline" style="flex: 1; justify-content: center;" onclick="document.getElementById('sw-input').click()">
+                        <i class="fas fa-file-upload"></i> ВЫБРАТЬ ФАЙЛ
+                    </button>
+                    <button id="sw-publish-btn" class="btn btn-primary" style="flex: 1; justify-content: center; opacity: 0.5; pointer-events: none;" onclick="uploadAndPublishSoftware()">
+                        <i class="fas fa-cloud-upload-alt"></i> ЗАГРУЗИТЬ И ОПУБЛИКОВАТЬ ФАЙЛ
+                    </button>
                 </div>
             </div>
 
-            <div class="upload-area" id="sw-drop-zone">
-                <i class="fas fa-file-executable" style="font-size: 40px; color: var(--primary);"></i>
-                <p style="margin-top: 15px;" id="sw-file-name">Выберите файл или перетащите его сюда</p>
-                <p style="font-size: 10px; color: var(--text-muted);">Поддерживаются .EXE и .ZIP файлы (макс. 30MB)</p>
-                <input type="file" id="sw-input" hidden accept=".exe,.zip">
-            </div>
-
-            <div class="sw-upload-container">
-                <button class="btn btn-outline" style="flex: 1; justify-content: center;" onclick="document.getElementById('sw-input').click()">
-                    <i class="fas fa-file-upload"></i> ВЫБРАТЬ ФАЙЛ
+            <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+                <button class="btn btn-primary" style="width: 100%; justify-content: center; background: linear-gradient(45deg, var(--primary), #00d2ff); border: none; box-shadow: var(--neon-glow);" onclick="saveConfig()">
+                    <i class="fas fa-globe"></i> ОПУБЛИКОВАТЬ ВСЕ ИЗМЕНЕНИЯ (ВЕРСИЮ И КОНТЕНТ)
                 </button>
-                <button id="sw-publish-btn" class="btn btn-primary" style="flex: 1; justify-content: center; opacity: 0.5; pointer-events: none;" onclick="uploadAndPublishSoftware()">
-                    <i class="fas fa-cloud-upload-alt"></i> ЗАГРУЗИТЬ И ОПУБЛИКОВАТЬ
-                </button>
+                <p style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 10px;">Нажмите эту кнопку, чтобы версия 9.3.5 и другие текстовые правки появились на сайте.</p>
             </div>
             
             <div id="sw-status" style="display: none; margin-top: 30px;">
@@ -385,8 +406,8 @@
                 <div class="progress-bar">
                     <div id="sw-progress" class="progress-fill"></div>
                 </div>
-                <div id="sw-log" style="margin-top: 20px; font-size: 11px; color: var(--text-muted); background: #000; padding: 10px; border: 1px solid #222; max-height: 100px; overflow-y: auto;"></div>
-                <button id="rollback-btn" class="btn btn-outline" style="margin-top: 20px; border-color: var(--accent); color: var(--accent); display: none; width: 100%;" onclick="rollback()">Откатить версию</button>
+                <div id="sw-log" style="margin-top: 20px; font-size: 11px; color: var(--text-muted); background: #000; padding: 10px; border: 1px solid #222; max-height: 150px; overflow-y: auto;"></div>
+                <button id="rollback-btn" class="btn btn-outline" style="margin-top: 20px; border-color: var(--accent); color: var(--accent); display: none; width: 100%;" onclick="rollback()">Откатить к предыдущей версии</button>
             </div>
         </div>
     </div>
@@ -411,8 +432,14 @@
                 document.getElementById('edit-desc').value = config.description || '';
                 document.getElementById('edit-dl-text').value = config.download_text || 'СКАЧАТЬ ВЕРСИЮ 9.3.0';
                 document.getElementById('edit-dl-url').value = config.download_url || '#';
-                document.getElementById('edit-version').value = config.version || '9.3.0';
-                document.getElementById('edit-version-desc').value = config.version_desc || '';
+                
+                // Sync version fields
+                const version = config.version || '9.3.0';
+                const versionDesc = config.version_desc || '';
+                document.getElementById('edit-version').value = version;
+                document.getElementById('edit-version-desc').value = versionDesc;
+                document.getElementById('sw-edit-version').value = version;
+                document.getElementById('sw-edit-version-desc').value = versionDesc;
                 
                 // Ensure screenshots array exists
                 if (!config.screenshots) config.screenshots = [];
@@ -420,18 +447,29 @@
                 if (!config.placements) config.placements = { hero: '', download: '' };
                 
                 renderWhyUs();
-                renderPlacementSelectors(); // Added this call
+                renderPlacementSelectors();
             } catch (e) {
                 console.warn("Failed to load config", e);
             }
         }
 
+        function syncVersion(val) {
+            document.getElementById('edit-version').value = val;
+        }
+
+        function syncVersionDesc(val) {
+            document.getElementById('edit-version-desc').value = val;
+        }
+
         async function loadMedia() {
             try {
-                const resp = await fetch('/api/images');
+                // Добавляем timestamp для обхода кэша
+                const resp = await fetch('/api/images?v=' + new Date().getTime());
                 if (resp.ok) {
                     mediaFiles = await resp.json();
                     renderMedia();
+                } else {
+                    console.error("Failed to load media: " + resp.status);
                 }
             } catch (e) {
                 console.error("Failed to load media", e);
@@ -527,8 +565,10 @@
             const screenshotsBox = document.getElementById('screenshots-mapping');
             if (!heroSelect || !dlSelect || !screenshotsBox) return;
             
-            const options = '<option value="">-- Выберите изображение --</option>' + 
-                mediaFiles.map(f => `<option value="${f.url}">${f.name} (P:${f.priority})</option>`).join('');
+            // Generate options from uploaded media
+            const mediaOptions = mediaFiles.map(f => `<option value="${f.url}">${f.name} (Prio: ${f.priority})</option>`).join('');
+            const defaultOption = '<option value="">-- Выберите изображение --</option>';
+            const options = defaultOption + mediaOptions;
             
             heroSelect.innerHTML = options;
             dlSelect.innerHTML = options;
@@ -539,22 +579,36 @@
             }
 
             if (config && config.screenshots) {
-                // Determine number of screenshots based on config or default to 5
-                const count = Math.max(config.screenshots.length, 5);
                 let html = '';
-                for (let i = 0; i < count; i++) {
-                    const currentUrl = config.screenshots[i] ? config.screenshots[i].url : '';
+                config.screenshots.forEach((s, i) => {
+                    const currentUrl = s.url || '';
                     html += `
-                        <div style="background: #0a0a0a; border: 1px solid #222; padding: 10px;">
-                            <label style="font-size: 9px; opacity: 0.7;">Скриншот ${i+1}</label>
-                            <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px; width: 100%;">
-                                <option value="">-- Выберите --</option>
+                        <div style="background: #0a0a0a; border: 1px solid #222; padding: 10px; position: relative;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <label style="font-size: 9px; opacity: 0.7; margin: 0;">Скриншот ${i+1}</label>
+                                <i class="fas fa-times" style="color: var(--accent); cursor: pointer; font-size: 10px;" onclick="removeScreenshotSlot(${i})"></i>
+                            </div>
+                            <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px; width: 100%; background: #000; color: #fff; border: 1px solid #333;">
+                                ${defaultOption}
                                 ${mediaFiles.map(f => `<option value="${f.url}" ${f.url === currentUrl ? 'selected' : ''}>${f.name}</option>`).join('')}
                             </select>
                         </div>
                     `;
-                }
+                });
                 screenshotsBox.innerHTML = html;
+            }
+        }
+
+        function addScreenshotSlot() {
+            if (!config.screenshots) config.screenshots = [];
+            config.screenshots.push({ url: '', title: `Screenshot ${config.screenshots.length + 1}` });
+            renderPlacementSelectors();
+        }
+
+        function removeScreenshotSlot(index) {
+            if (config.screenshots && config.screenshots[index]) {
+                config.screenshots.splice(index, 1);
+                renderPlacementSelectors();
             }
         }
 
@@ -572,7 +626,7 @@
             config.placements[type] = val;
         }
 
-        async function saveConfig() {
+        async function saveConfig(silent = false) {
             try {
                 config.description = document.getElementById('edit-desc').value;
                 config.download_text = document.getElementById('edit-dl-text').value;
@@ -592,13 +646,13 @@
                 });
                 const res = await resp.json();
                 if (resp.ok) {
-                    alert('СИСТЕМА: Конфигурация обновлена и опубликована');
+                    if (!silent) alert('СИСТЕМА: Конфигурация обновлена и опубликована');
                     loadData(); // Refresh UI with cleaned config
                 } else {
-                    alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
+                    if (!silent) alert('ОШИБКА: ' + (res.msg || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                alert('ОШИБКА СЕТИ');
+                if (!silent) alert('ОШИБКА СЕТИ');
             }
         }
 
@@ -714,15 +768,17 @@
             const percentLabel = document.getElementById('sw-uploading-percent');
             const logBox = document.getElementById('sw-log');
             const publishBtn = document.getElementById('sw-publish-btn');
+            const version = document.getElementById('sw-edit-version').value;
 
             status.style.display = 'block';
             nameLabel.textContent = selectedSoftwareFile.name;
             publishBtn.disabled = true;
             publishBtn.style.opacity = '0.5';
-            logBox.innerHTML += `<div>[${new Date().toLocaleTimeString()}] Запуск процесса публикации...</div>`;
+            logBox.innerHTML += `<div>[${new Date().toLocaleTimeString()}] Запуск процесса публикации v${version}...</div>`;
 
             const formData = new FormData();
             formData.append('file', selectedSoftwareFile);
+            if (version) formData.append('version', version);
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/update/software', true);
@@ -744,8 +800,13 @@
                     logBox.innerHTML += `<div style="color: var(--primary)">[${new Date().toLocaleTimeString()}] ${res.msg}</div>`;
                     logBox.innerHTML += `<div style="color: var(--text-muted)">HASH: ${res.hash}</div>`;
                     document.getElementById('edit-dl-url').value = res.url;
+                    
+                    // АВТОМАТИЧЕСКАЯ ПУБЛИКАЦИЯ ПОСЛЕ ЗАГРУЗКИ
+                    logBox.innerHTML += `<div style="color: var(--primary)">[${new Date().toLocaleTimeString()}] Инициация автоматической публикации...</div>`;
+                    saveConfig(true); // Вызываем сохранение с флагом тишины
+                    
                     loadData();
-                    alert('СИСТЕМА: ПО УСПЕШНО ОПУБЛИКОВАНО');
+                    alert('СИСТЕМА: ПО УСПЕШНО ЗАГРУЖЕНО И ОПУБЛИКОВАНО');
                     selectedSoftwareFile = null;
                     document.getElementById('sw-file-name').textContent = 'Выберите файл или перетащите его сюда';
                     publishBtn.style.opacity = '0.5';
@@ -779,6 +840,34 @@
                 }
             } catch (e) {
                 alert('ОШИБКА СЕТИ');
+            }
+        }
+
+        async function downloadScreenshotsArchive() {
+            const btn = document.getElementById('download-screenshots-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ГЕНЕРАЦИЯ...';
+            
+            try {
+                const resp = await fetch('/api/download/screenshots');
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `screenshots_archive_${new Date().getTime()}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    const res = await resp.json();
+                    alert('ОШИБКА: ' + (res.msg || 'Не удалось создать архив'));
+                }
+            } catch (e) {
+                alert('ОШИБКА СЕТИ ПРИ СКАЧИВАНИИ');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download"></i> СКАЧАТЬ ВСЕ (ZIP)';
             }
         }
 
