@@ -324,6 +324,11 @@
         // Download Logic
         const dlBtn = document.getElementById('download-btn');
         if (dlBtn) {
+            // Apply text from config
+            if (config && config.download_text) {
+                dlBtn.innerHTML = `<span>${config.download_text}</span>`;
+            }
+
             dlBtn.addEventListener('click', () => {
                 const container = document.getElementById('download-progress-container');
                 const fill = document.getElementById('download-progress-fill');
@@ -334,16 +339,32 @@
                     
                     let progress = 0;
                     const interval = setInterval(() => {
-                        progress += Math.random() * 5;
+                        progress += Math.random() * 8;
                         if (progress >= 100) {
                             progress = 100;
                             clearInterval(interval);
-                            status.textContent = 'ГОТОВО! ЗАГРУЗКА...';
-                            setTimeout(() => window.location.href = '#', 1000);
+                            status.textContent = 'ГОТОВО! НАЧИНАЕМ ЗАГРУЗКУ...';
+                            
+                            // Trigger actual file download
+                            const downloadUrl = (config && config.download_url) ? config.download_url : '#';
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = downloadUrl.split('/').pop() || 'MoneyTrackerPro_Setup.exe';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+
+                            setTimeout(() => {
+                                container.style.display = 'none';
+                                dlBtn.style.display = 'inline-flex';
+                                status.textContent = 'ПОДГОТОВКА...';
+                                fill.style.width = '0%';
+                                alert('СИСТЕМА: ЗАГРУЗКА ЗАВЕРШЕНА УСПЕШНО');
+                            }, 2000);
                         }
                         fill.style.width = progress + '%';
                         status.textContent = `ЗАГРУЗКА ДАННЫХ: ${Math.round(progress)}%`;
-                    }, 100);
+                    }, 80);
                 }
             });
         }

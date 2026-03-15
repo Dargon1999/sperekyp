@@ -207,6 +207,14 @@
                 <button class="btn btn-outline" style="margin-top: 15px; width: 100%;" onclick="addWhyUsItem()">+ Добавить модуль</button>
             </div>
 
+            <div class="editor-group">
+                <label>Кнопка скачивания</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="text" id="edit-dl-text" placeholder="Текст кнопки">
+                    <input type="text" id="edit-dl-url" placeholder="URL файла (.exe)">
+                </div>
+            </div>
+
             <div class="editor-group" style="margin-top: 40px; border-top: 1px solid #222; padding-top: 30px;">
                 <label>Привязка изображений (Placement)</label>
                 <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">Укажите, какие изображения из библиотеки должны отображаться в конкретных блоках сайта.</p>
@@ -292,6 +300,8 @@
                 if (!resp.ok) throw new Error();
                 config = await resp.json();
                 document.getElementById('edit-desc').value = config.description;
+                document.getElementById('edit-dl-text').value = config.download_text || 'СКАЧАТЬ ВЕРСИЮ 9.3.0';
+                document.getElementById('edit-dl-url').value = config.download_url || '#';
                 renderWhyUs();
             } catch (e) {
                 console.warn("Using local/demo data");
@@ -512,6 +522,9 @@
 
         async function saveConfig() {
             config.description = document.getElementById('edit-desc').value;
+            config.download_text = document.getElementById('edit-dl-text').value;
+            config.download_url = document.getElementById('edit-dl-url').value;
+            
             const heroVal = document.getElementById('map-hero').value;
             const dlVal = document.getElementById('map-download').value;
             
