@@ -417,8 +417,11 @@
                 formData.append('file', file);
 
                 try {
+                    const isExe = file.name.endsWith('.exe') || file.name.endsWith('.zip');
+                    const uploadUrl = isExe ? '/api/update/software' : '/api/upload/image';
+                    
                     const xhr = new XMLHttpRequest();
-                    xhr.open('POST', '/api/upload/image', true);
+                    xhr.open('POST', uploadUrl, true);
                     
                     xhr.upload.onprogress = (e) => {
                         if (e.lengthComputable) {
@@ -430,7 +433,12 @@
 
                     xhr.onload = () => {
                         if (xhr.status === 200) {
-                            loadMedia();
+                            if (isExe) {
+                                alert('СИСТЕМА: ОБНОВЛЕНИЕ ПО ЗАГРУЖЕНО');
+                                loadData();
+                            } else {
+                                loadMedia();
+                            }
                         } else {
                             const data = JSON.parse(xhr.responseText);
                             alert('ОШИБКА ЗАГРУЗКИ: ' + data.msg);

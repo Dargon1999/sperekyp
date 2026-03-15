@@ -26,8 +26,44 @@
             setTimeout(() => {
                 preloader.style.display = 'none';
                 document.body.classList.remove('loading');
+                initFullscreenViewer(); // Initialize viewer after preloader
             }, 800);
         }
+    };
+
+    // 2. Fullscreen Viewer
+    const initFullscreenViewer = () => {
+        const overlay = document.getElementById('fullscreen-overlay');
+        const fsImg = document.getElementById('fullscreen-img');
+        const close = document.querySelector('.close-overlay');
+        
+        if (!overlay || !fsImg) return;
+
+        const openViewer = (src) => {
+            fsImg.src = src;
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        const closeViewer = () => {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        };
+
+        // Attach to all images on click
+        document.body.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG' && (e.target.closest('.screenshot-item') || e.target.closest('.media-item') || e.target.id === 'hero-img')) {
+                openViewer(e.target.src);
+            }
+        });
+
+        close.addEventListener('click', closeViewer);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeViewer();
+        });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeViewer();
+        });
     };
 
     // 2. Load config.json with Timeout

@@ -226,10 +226,15 @@ def upload_image():
             img.save(preview_path)
             
             # Save to DB
+            mimetype = img.format.lower() if img.format else 'image/jpeg'
+            if mimetype == 'jpeg': mimetype = 'image/jpeg'
+            elif mimetype == 'png': mimetype = 'image/png'
+            elif mimetype == 'webp': mimetype = 'image/webp'
+            
             new_img = ImageMetadata(
                 filename=filename,
                 original_name=original_filename,
-                mimetype=img.format,
+                mimetype=mimetype,
                 size=file_size
             )
             db.session.add(new_img)
@@ -327,14 +332,16 @@ def update_software():
         return jsonify({'msg': 'No file'}), 400
     
     file = request.files['file']
-    if not file.filename.endswith('.zip'):
-        return jsonify({'msg': 'Only ZIP files allowed'}), 400
-
     filename = secure_filename(file.filename)
+    
+    # Allow ZIP and EXE
+    if not (filename.endswith('.zip') or filename.endswith('.exe')):
+        return jsonify({'msg': 'Только ZIP или EXE файлы'}), 400
+
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'software', filename)
     file.save(filepath)
 
-    # 1. Backup current version if exists
+    # 1. Backup current config
     config_json_path = update_config_path('config.json')
     if os.path.exists(config_json_path):
         shutil.copy(config_json_path, os.path.join(app.config['BACKUP_FOLDER'], 'config_last.json'))
@@ -342,33 +349,41 @@ def update_software():
     # 2. Checksum
     checksum = calculate_sha256(filepath)
     
+    # 3. Handle EXE directly or extract ZIP
     try:
-        # 3. Extract and verify
-        with zipfile.ZipFile(filepath, 'r') as zip_ref:
-            # Check for update.json inside ZIP for version info
-            if 'update.json' in zip_ref.namelist():
-                update_info = json.loads(zip_ref.read('update.json'))
-                new_version = update_info.get('version', 'unknown')
-                
-                # Update config.json with new version and download URL
-                with open(config_json_path, 'r+', encoding='utf-8') as f:
-                    config = json.load(f)
-                    config['version'] = new_version
-                    # Assume ZIP contains the .exe too, or just update metadata
-                    f.seek(0)
-                    json.dump(config, f, indent=4, ensure_ascii=False)
-                    f.truncate()
-                
-                log_action(f"Software update installed: v{new_version} (SHA256: {checksum[:8]})")
-                return jsonify({'msg': 'Update installed', 'version': new_version, 'hash': checksum})
-            else:
-                return jsonify({'msg': 'update.json missing in ZIP'}), 400
+        if filename.endswith('.exe'):
+            # Just update metadata in config
+            with open(config_json_path, 'r+', encoding='utf-8') as f:
+                config = json.load(f)
+                config['download_url'] = f'/uploads/software/{filename}'
+                config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                f.seek(0)
+                json.dump(config, f, indent=4, ensure_ascii=False)
+                f.truncate()
+            
+            log_action(f"EXE Software uploaded: {filename} (SHA256: {checksum[:8]})")
+            return jsonify({'msg': 'EXE загружен и обновлен', 'hash': checksum})
+            
+        elif filename.endswith('.zip'):
+            with zipfile.ZipFile(filepath, 'r') as zip_ref:
+                if 'update.json' in zip_ref.namelist():
+                    update_info = json.loads(zip_ref.read('update.json'))
+                    new_version = update_info.get('version', 'unknown')
+                    
+                    with open(config_json_path, 'r+', encoding='utf-8') as f:
+                        config = json.load(f)
+                        config['version'] = new_version
+                        f.seek(0)
+                        json.dump(config, f, indent=4, ensure_ascii=False)
+                        f.truncate()
+                    
+                    log_action(f"ZIP Software update: v{new_version}")
+                    return jsonify({'msg': 'ZIP обновление установлено', 'version': new_version})
+                else:
+                    return jsonify({'msg': 'update.json отсутствует в ZIP'}), 400
     except Exception as e:
         log_action(f"Software update FAILED: {str(e)}")
-        # Rollback
-        if os.path.exists(os.path.join(app.config['BACKUP_FOLDER'], 'config_last.json')):
-            shutil.copy(os.path.join(app.config['BACKUP_FOLDER'], 'config_last.json'), config_json_path)
-        return jsonify({'msg': 'Installation error', 'log': str(e)}), 500
+        return jsonify({'msg': 'Ошибка установки', 'log': str(e)}), 500
 
 @app.route('/api/update/rollback', methods=['POST'])
 @jwt_required()
