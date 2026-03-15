@@ -139,15 +139,21 @@
             if (sizeEl) sizeEl.textContent = config.file_size;
 
             // Apply Dynamic Placements
+            const ts = new Date().getTime(); // Cache buster
             if (config.placements) {
                 const heroImg = document.getElementById('hero-img');
                 if (heroImg && config.placements.hero) {
-                    heroImg.src = config.placements.hero;
+                    heroImg.src = config.placements.hero.startsWith('/') ? `${config.placements.hero}?v=${ts}` : config.placements.hero;
+                    heroImg.onerror = () => {
+                        console.warn('Hero image failed to load, using default');
+                        heroImg.src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80';
+                    };
                 }
                 
                 const downloadSection = document.getElementById('download');
                 if (downloadSection && config.placements.download) {
-                    downloadSection.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url(${config.placements.download})`;
+                    const dlUrl = config.placements.download.startsWith('/') ? `${config.placements.download}?v=${ts}` : config.placements.download;
+                    downloadSection.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url(${dlUrl})`;
                     downloadSection.style.backgroundSize = 'cover';
                     downloadSection.style.backgroundPosition = 'center';
                 }
@@ -182,11 +188,15 @@
 
             const screenshotsContainer = document.getElementById('screenshots-container');
             if (screenshotsContainer && config.screenshots) {
-                screenshotsContainer.innerHTML = config.screenshots.map(s => `
-                    <div class="screenshot-item reveal-up">
-                        <img src="${s.url}" alt="${s.title}">
-                    </div>
-                `).join('');
+                screenshotsContainer.innerHTML = config.screenshots.map(s => {
+                    if (!s.url) return '';
+                    const url = s.url.startsWith('/') ? `${s.url}?v=${ts}` : s.url;
+                    return `
+                        <div class="screenshot-item reveal-up">
+                            <img src="${url}" alt="${s.title || 'Screenshot'}" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    `;
+                }).join('');
             }
 
             const discordEl = document.getElementById('contact-discord');

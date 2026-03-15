@@ -66,6 +66,11 @@ class ImageMetadata(db.Model):
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     is_hero = db.Column(db.Boolean, default=False)
     is_bg = db.Column(db.Boolean, default=False)
+    # New fields
+    name = db.Column(db.String(255))
+    description = db.Column(db.Text)
+    priority = db.Column(db.Integer, default=0)
+    hash = db.Column(db.String(64), unique=True) # SHA-256 hash
 
 # Initialize database and admin user
 with app.app_context():
@@ -164,11 +169,14 @@ def get_config():
 @app.route('/api/images', methods=['GET'])
 @jwt_required()
 def get_images():
-    images = ImageMetadata.query.order_by(ImageMetadata.upload_date.desc()).all()
+    images = ImageMetadata.query.order_by(ImageMetadata.priority.desc(), ImageMetadata.upload_date.desc()).all()
     return jsonify([{
         'id': img.id,
         'filename': img.filename,
         'original_name': img.original_name,
+        'name': img.name or img.original_name,
+        'description': img.description or '',
+        'priority': img.priority,
         'url': f'/uploads/images/{img.filename}',
         'preview': f'/uploads/previews/{img.filename}',
         'size': img.size,
@@ -198,14 +206,32 @@ def upload_image():
             if img.format not in allowed_formats:
                 return jsonify({'msg': f'Формат {img.format} не поддерживается. Только JPEG, PNG, WEBP.'}), 400
                 
+            # Temporary path to calculate hash
+            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_{secure_filename(file.filename)}")
+            file.seek(0)
+            file.save(temp_path)
+            
+            file_hash = calculate_sha256(temp_path)
+            
+            # Check if file already exists by hash
+            existing_img = ImageMetadata.query.filter_by(hash=file_hash).first()
+            if existing_img:
+                os.remove(temp_path)
+                results.append({
+                    'id': existing_img.id,
+                    'filename': existing_img.filename,
+                    'preview': f'/uploads/previews/{existing_img.filename}',
+                    'msg': 'Файл уже существует (дубликат)'
+                })
+                continue
+
             # Secure filename and unique ID
             original_filename = secure_filename(file.filename)
             unique_prefix = hashlib.md5(f"{datetime.now()}{original_filename}".encode()).hexdigest()[:8]
             filename = f"{unique_prefix}_{original_filename}"
             
             path = os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename)
-            file.seek(0) # Reset pointer
-            file.save(path)
+            shutil.move(temp_path, path)
             
             # File metadata
             file_size = os.path.getsize(path)
@@ -235,7 +261,9 @@ def upload_image():
                 filename=filename,
                 original_name=original_filename,
                 mimetype=mimetype,
-                size=file_size
+                size=file_size,
+                hash=file_hash,
+                name=original_filename
             )
             db.session.add(new_img)
             db.session.commit()
@@ -248,9 +276,24 @@ def upload_image():
             })
         except Exception as e:
             logging.error(f"Ошибка загрузки файла: {str(e)}")
+            if os.path.exists(temp_path): os.remove(temp_path)
             return jsonify({'msg': f'Ошибка при обработке {file.filename}: {str(e)}'}), 500
             
     return jsonify({'msg': f'Успешно загружено {len(results)} файлов', 'files': results})
+
+@app.route('/api/update/image-metadata/<int:image_id>', methods=['POST'])
+@jwt_required()
+def update_image_metadata(image_id):
+    img = ImageMetadata.query.get_or_404(image_id)
+    data = request.json
+    
+    if 'name' in data: img.name = data['name']
+    if 'description' in data: img.description = data['description']
+    if 'priority' in data: img.priority = int(data.get('priority', 0))
+    
+    db.session.commit()
+    log_action(f"Обновлены метаданные изображения {img.filename}")
+    return jsonify({'msg': 'Метаданные обновлены'})
 
 @app.route('/api/delete/image/<int:image_id>', methods=['DELETE'])
 @jwt_required()
@@ -329,61 +372,76 @@ def update_config():
 @jwt_required()
 def update_software():
     if 'file' not in request.files:
-        return jsonify({'msg': 'No file'}), 400
+        return jsonify({'msg': 'Файл не выбран'}), 400
     
     file = request.files['file']
-    filename = secure_filename(file.filename)
+    if file.filename == '':
+        return jsonify({'msg': 'Имя файла пустое'}), 400
+
+    original_filename = secure_filename(file.filename)
     
     # Allow ZIP and EXE
-    if not (filename.endswith('.zip') or filename.endswith('.exe')):
+    if not (original_filename.lower().endswith('.zip') or original_filename.lower().endswith('.exe')):
         return jsonify({'msg': 'Только ZIP или EXE файлы'}), 400
 
+    # Temporary path for hash check
+    temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_sw_{original_filename}")
+    file.save(temp_path)
+    
+    checksum = calculate_sha256(temp_path)
+    
+    # Unique filename to avoid collisions but keep original name part
+    filename = f"{checksum[:8]}_{original_filename}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'software', filename)
-    file.save(filepath)
+
+    if os.path.exists(filepath):
+        os.remove(temp_path)
+        # Still update config if it's the same file but maybe config was changed
+    else:
+        shutil.move(temp_path, filepath)
 
     # 1. Backup current config
     config_json_path = update_config_path('config.json')
     if os.path.exists(config_json_path):
-        shutil.copy(config_json_path, os.path.join(app.config['BACKUP_FOLDER'], 'config_last.json'))
+        shutil.copy(config_json_path, os.path.join(app.config['BACKUP_FOLDER'], f"config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"))
 
-    # 2. Checksum
-    checksum = calculate_sha256(filepath)
-    
-    # 3. Handle EXE directly or extract ZIP
+    # 2. Update config.json
     try:
-        if filename.endswith('.exe'):
-            # Just update metadata in config
-            with open(config_json_path, 'r+', encoding='utf-8') as f:
-                config = json.load(f)
+        with open(config_json_path, 'r+', encoding='utf-8') as f:
+            config = json.load(f)
+            
+            if filename.lower().endswith('.exe'):
                 config['download_url'] = f'/uploads/software/{filename}'
                 config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
-                f.seek(0)
-                json.dump(config, f, indent=4, ensure_ascii=False)
-                f.truncate()
-            
-            log_action(f"EXE Software uploaded: {filename} (SHA256: {checksum[:8]})")
-            return jsonify({'msg': 'EXE загружен и обновлен', 'hash': checksum})
-            
-        elif filename.endswith('.zip'):
-            with zipfile.ZipFile(filepath, 'r') as zip_ref:
-                if 'update.json' in zip_ref.namelist():
-                    update_info = json.loads(zip_ref.read('update.json'))
-                    new_version = update_info.get('version', 'unknown')
-                    
-                    with open(config_json_path, 'r+', encoding='utf-8') as f:
-                        config = json.load(f)
+                log_action(f"EXE Software published: {filename} (SHA256: {checksum[:8]})")
+                msg = 'EXE загружен и опубликован'
+                
+            elif filename.lower().endswith('.zip'):
+                with zipfile.ZipFile(filepath, 'r') as zip_ref:
+                    if 'update.json' in zip_ref.namelist():
+                        update_info = json.loads(zip_ref.read('update.json'))
+                        new_version = update_info.get('version', 'unknown')
                         config['version'] = new_version
-                        f.seek(0)
-                        json.dump(config, f, indent=4, ensure_ascii=False)
-                        f.truncate()
-                    
-                    log_action(f"ZIP Software update: v{new_version}")
-                    return jsonify({'msg': 'ZIP обновление установлено', 'version': new_version})
-                else:
-                    return jsonify({'msg': 'update.json отсутствует в ZIP'}), 400
+                        config['download_url'] = f'/uploads/software/{filename}'
+                        config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                        log_action(f"ZIP Software update published: v{new_version}")
+                        msg = f'ZIP обновление v{new_version} установлено и опубликовано'
+                    else:
+                        # If no update.json, just treat as a downloadable zip
+                        config['download_url'] = f'/uploads/software/{filename}'
+                        config['file_size'] = f"{os.path.getsize(filepath) / (1024*1024):.1f} MB"
+                        log_action(f"ZIP Software published (no update.json): {filename}")
+                        msg = 'ZIP загружен и опубликован'
+            
+            f.seek(0)
+            json.dump(config, f, indent=4, ensure_ascii=False)
+            f.truncate()
+            
+        return jsonify({'msg': msg, 'hash': checksum, 'url': config['download_url']})
+        
     except Exception as e:
         log_action(f"Software update FAILED: {str(e)}")
-        return jsonify({'msg': 'Ошибка установки', 'log': str(e)}), 500
+        return jsonify({'msg': 'Ошибка при публикации', 'log': str(e)}), 500
 
 @app.route('/api/update/rollback', methods=['POST'])
 @jwt_required()
