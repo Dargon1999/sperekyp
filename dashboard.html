@@ -220,6 +220,11 @@
                         <select id="map-download" onchange="updateMapping('download', this.value)"></select>
                     </div>
                 </div>
+                
+                <label style="margin-top: 20px; display: block;">Интерфейс системы (Скриншоты)</label>
+                <div id="screenshots-mapping" class="mapping-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <!-- Динамические селекторы скриншотов -->
+                </div>
             </div>
             
             <button class="btn btn-primary" style="margin-top: 30px; width: 100%;" onclick="saveConfig()">Опубликовать в сеть</button>
@@ -349,7 +354,8 @@
         function renderPlacementSelectors() {
             const heroSelect = document.getElementById('map-hero');
             const dlSelect = document.getElementById('map-download');
-            if (!heroSelect || !dlSelect) return;
+            const screenshotsBox = document.getElementById('screenshots-mapping');
+            if (!heroSelect || !dlSelect || !screenshotsBox) return;
             
             const options = '<option value="">-- Выберите изображение --</option>' + 
                 mediaFiles.map(f => `<option value="${f.url}">${f.original_name}</option>`).join('');
@@ -360,6 +366,30 @@
             if (config && config.placements) {
                 heroSelect.value = config.placements.hero || '';
                 dlSelect.value = config.placements.download || '';
+            }
+
+            // Рендер селекторов для скриншотов
+            if (config && config.screenshots) {
+                screenshotsBox.innerHTML = config.screenshots.map((s, i) => `
+                    <div class="mapping-card">
+                        <label style="font-size: 9px; opacity: 0.7;">Скриншот ${i+1}</label>
+                        <select onchange="updateScreenshot(${i}, this.value)" style="padding: 5px; font-size: 10px;">
+                            <option value="">-- Выберите --</option>
+                            ${mediaFiles.map(f => `<option value="${f.url}" ${f.url === s.url ? 'selected' : ''}>${f.original_name}</option>`).join('')}
+                        </select>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateMapping(type, val) {
+            if (!config.placements) config.placements = {};
+            config.placements[type] = val;
+        }
+
+        function updateScreenshot(index, val) {
+            if (config.screenshots && config.screenshots[index]) {
+                config.screenshots[index].url = val;
             }
         }
 
@@ -506,6 +536,21 @@
                 localStorage.removeItem('admin_logged_in');
                 window.location.href = 'admin.html';
             });
+        }
+
+        async function rollback() {
+            if (!confirm('Вы уверены, что хотите откатить систему к предыдущей версии?')) return;
+            try {
+                const resp = await fetch('/api/update/rollback', { method: 'POST' });
+                if (resp.ok) {
+                    alert('СИСТЕМА: ОТКАТ ВЫПОЛНЕН УСПЕШНО');
+                    loadData();
+                } else {
+                    alert('ОШИБКА: Бэкап не найден');
+                }
+            } catch (e) {
+                alert('ОШИБКА СЕТИ');
+            }
         }
 
         // Software mock
