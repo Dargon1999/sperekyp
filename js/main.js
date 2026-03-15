@@ -162,7 +162,11 @@
     // 4. Background Canvas (Matrix/Cyber Effect)
     const initBgCanvas = () => {
         const canvas = document.getElementById('bg-canvas');
+        if (!canvas) return;
+        
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
         let width, height, particles = [];
 
         const resize = () => {

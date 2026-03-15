@@ -349,6 +349,7 @@
         function renderPlacementSelectors() {
             const heroSelect = document.getElementById('map-hero');
             const dlSelect = document.getElementById('map-download');
+            if (!heroSelect || !dlSelect) return;
             
             const options = '<option value="">-- Выберите изображение --</option>' + 
                 mediaFiles.map(f => `<option value="${f.url}">${f.original_name}</option>`).join('');
@@ -356,9 +357,9 @@
             heroSelect.innerHTML = options;
             dlSelect.innerHTML = options;
             
-            if (config.placements) {
-                heroSelect.value = config.placements.hero;
-                dlSelect.value = config.placements.download;
+            if (config && config.placements) {
+                heroSelect.value = config.placements.hero || '';
+                dlSelect.value = config.placements.download || '';
             }
         }
 
