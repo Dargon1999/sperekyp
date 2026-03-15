@@ -356,7 +356,7 @@
                             const downloadUrl = (config && config.download_url) ? config.download_url : '#';
                             const link = document.createElement('a');
                             link.href = downloadUrl;
-                            link.download = downloadUrl.split('/').pop() || 'MoneyTrackerPro_Setup.exe';
+                            link.download = downloadUrl.split('/').pop() || 'MoneyTracker.exe';
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
