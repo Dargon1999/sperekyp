@@ -55,15 +55,31 @@ class AdminLog(db.Model):
     ip = db.Column(db.String(45))
     action = db.Column(db.String(255))
 
-# Setup logging
+# Initialize database and admin user
+with app.app_context():
+    try:
+        db.create_all()
+        if not Admin.query.filter_by(username='BossDargon').first():
+            hashed_pw = bcrypt.generate_password_hash('Sanya0811').decode('utf-8')
+            new_admin = Admin(username='BossDargon', password_hash=hashed_pw)
+            db.session.add(new_admin)
+            db.session.commit()
+            logging.info("Database initialized and default admin 'BossDargon' created.")
+    except Exception as e:
+        logging.error(f"CRITICAL: Database initialization failed: {e}")
+
+# Logging and Helpers
 logging.basicConfig(filename='admin_activity.log', level=logging.INFO)
 
 def log_action(action):
-    ip = request.remote_addr
-    log = AdminLog(ip=ip, action=action)
-    db.session.add(log)
-    db.session.commit()
-    logging.info(f"{datetime.utcnow()} | IP: {ip} | Action: {action}")
+    try:
+        ip = request.remote_addr
+        log = AdminLog(ip=ip, action=action)
+        db.session.add(log)
+        db.session.commit()
+        logging.info(f"{datetime.utcnow()} | IP: {ip} | Action: {action}")
+    except Exception as e:
+        logging.error(f"Logging failed: {e}")
 
 def calculate_sha256(filepath):
     sha256_hash = hashlib.sha256()
@@ -99,20 +115,29 @@ def window_protocol():
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    # Жестко заданные учетные данные: BossDargon / Sanya0811
-    if username == "BossDargon" and password == "Sanya0811":
-        access_token = create_access_token(identity=username)
-        log_action(f"Successful login: {username}")
-        resp = jsonify({'msg': 'Login successful', 'redirect': '/dashboard'})
-        set_access_cookies(resp, access_token)
-        return resp
-    
-    log_action(f"Failed login attempt: {username}")
-    return jsonify({'msg': 'Неверный логин или пароль'}), 401
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'msg': 'Отсутствуют данные JSON'}), 400
+            
+        username = data.get('username')
+        password = data.get('password')
+        
+        logging.info(f"Login attempt for user: {username}")
+        
+        # Жестко заданные учетные данные: BossDargon / Sanya0811
+        if username == "BossDargon" and password == "Sanya0811":
+            access_token = create_access_token(identity=username)
+            log_action(f"Successful login (hardcoded): {username}")
+            resp = jsonify({'msg': 'Login successful', 'redirect': '/dashboard'})
+            set_access_cookies(resp, access_token)
+            return resp
+        
+        log_action(f"Failed login attempt (invalid credentials): {username}")
+        return jsonify({'msg': 'Неверный логин или пароль'}), 401
+    except Exception as e:
+        logging.error(f"Login API Error: {str(e)}")
+        return jsonify({'msg': f'Ошибка сервера: {str(e)}'}), 500
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -246,15 +271,4 @@ def serve_uploads(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    with app.app_context():
-        try:
-            db.create_all()
-            if not Admin.query.filter_by(username='BossDargon').first():
-                hashed_pw = bcrypt.generate_password_hash('Sanya0811').decode('utf-8')
-                new_admin = Admin(username='BossDargon', password_hash=hashed_pw)
-                db.session.add(new_admin)
-                db.session.commit()
-                logging.info("Default admin 'BossDargon' created.")
-        except Exception as e:
-            logging.error(f"Error during database initialization: {e}")
     app.run(port=5000, debug=True)

@@ -200,7 +200,7 @@
         // Mobile Menu
         const menuToggle = document.getElementById('mobile-menu');
         const navLinks = document.querySelector('.nav-links');
-        if (menuToggle) {
+        if (menuToggle && navLinks) {
             menuToggle.addEventListener('click', () => {
                 navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
                 navLinks.style.flexDirection = 'column';
@@ -223,50 +223,65 @@
 
         // Admin Modal (Keep for compatibility if triggers exist)
         const openModal = () => window.location.href = 'admin.html';
-        const closeModal = () => document.getElementById('admin-modal').style.display = 'none';
+        const closeModal = () => {
+            const modal = document.getElementById('admin-modal');
+            if (modal) modal.style.display = 'none';
+        };
         
-        document.getElementById('logo-admin-trigger').addEventListener('click', openModal);
-        document.getElementById('footer-admin-trigger').addEventListener('click', openModal);
-        document.getElementById('close-admin').addEventListener('click', closeModal);
+        const logoTrigger = document.getElementById('logo-admin-trigger');
+        if (logoTrigger) logoTrigger.addEventListener('click', openModal);
+        
+        const footerTrigger = document.getElementById('footer-admin-trigger');
+        if (footerTrigger) footerTrigger.addEventListener('click', openModal);
+        
+        const closeBtn = document.getElementById('close-admin');
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
 
         // Download Logic
         const dlBtn = document.getElementById('download-btn');
         if (dlBtn) {
             dlBtn.addEventListener('click', () => {
-                dlBtn.style.display = 'none';
                 const container = document.getElementById('download-progress-container');
                 const fill = document.getElementById('download-progress-fill');
                 const status = document.getElementById('download-status');
-                container.style.display = 'block';
-                
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += Math.random() * 5;
-                    if (progress >= 100) {
-                        progress = 100;
-                        clearInterval(interval);
-                        status.textContent = 'ГОТОВО! ЗАГРУЗКА...';
-                        setTimeout(() => window.location.href = '#', 1000);
-                    }
-                    fill.style.width = progress + '%';
-                    status.textContent = `ЗАГРУЗКА ДАННЫХ: ${Math.round(progress)}%`;
-                }, 100);
+                if (container && fill && status) {
+                    dlBtn.style.display = 'none';
+                    container.style.display = 'block';
+                    
+                    let progress = 0;
+                    const interval = setInterval(() => {
+                        progress += Math.random() * 5;
+                        if (progress >= 100) {
+                            progress = 100;
+                            clearInterval(interval);
+                            status.textContent = 'ГОТОВО! ЗАГРУЗКА...';
+                            setTimeout(() => window.location.href = '#', 1000);
+                        }
+                        fill.style.width = progress + '%';
+                        status.textContent = `ЗАГРУЗКА ДАННЫХ: ${Math.round(progress)}%`;
+                    }, 100);
+                }
             });
         }
 
-        // Admin Login
-        document.getElementById('admin-login-btn').addEventListener('click', () => {
-            const user = document.getElementById('admin-user').value;
-            const pass = document.getElementById('admin-pass').value;
-            if (user === 'admin' && pass === 'admin123') {
-                localStorage.setItem('admin_logged_in', 'true');
-                window.location.href = 'dashboard.html';
-            } else {
-                const err = document.getElementById('admin-login-error');
-                err.textContent = 'ДОСТУП ЗАПРЕЩЕН: НЕВЕРНЫЙ КОД';
-                err.style.display = 'block';
-            }
-        });
+        // Admin Login (Legacy - if still used)
+        const adminLoginBtn = document.getElementById('admin-login-btn');
+        if (adminLoginBtn) {
+            adminLoginBtn.addEventListener('click', () => {
+                const user = document.getElementById('admin-user').value;
+                const pass = document.getElementById('admin-pass').value;
+                if (user === 'admin' && pass === 'admin123') {
+                    localStorage.setItem('admin_logged_in', 'true');
+                    window.location.href = 'dashboard.html';
+                } else {
+                    const err = document.getElementById('admin-login-error');
+                    if (err) {
+                        err.textContent = 'ДОСТУП ЗАПРЕЩЕН: НЕВЕРНЫЙ КОД';
+                        err.style.display = 'block';
+                    }
+                }
+            });
+        }
     };
 
     // 7. Reveal Animation

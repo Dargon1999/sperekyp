@@ -148,6 +148,7 @@
                 if (resp.ok) {
                     window.location.href = data.redirect || 'dashboard.html';
                 } else {
+                    error.textContent = data.msg || 'ДОСТУП ЗАПРЕЩЕН';
                     error.style.display = 'block';
                     btn.disabled = false;
                     btn.textContent = 'ВЫПОЛНИТЬ ВХОД';
